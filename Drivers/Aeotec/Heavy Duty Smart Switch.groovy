@@ -14,27 +14,24 @@
 
 import groovy.transform.Field
 
-@Field int VERSION = 1
+@Field String VERSION = "1.0.0"
 
 @Field List<String> LOG_LEVELS = ["warn", "info", "debug", "trace"]
-@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
+@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[0]
 
 metadata {
-  definition (name: "Z-Wave Metering Switch", namespace: "smartthings", author: "SmartThings") {
-    capability "Energy Meter"
+  definition (name: "Aeotec Heavy Duty Smart Switch", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Heavy%20Duty%20Smart%20Switch.groovy") {
     capability "Actuator"
     capability "Switch"
+    capability "Sensor"
     capability "Power Meter"
     capability "Energy Meter"
     capability "Voltage Measurement"
     capability "Temperature Measurement"
     capability "Refresh"
     capability "Polling"
-    capability "Sensor"
-    capability "Light"
-    capability "Health Check"
     capability "Configuration"
-
+    capability "Initialize"
 
     command "clearState"
     command "reset"
@@ -48,10 +45,10 @@ metadata {
   }
 
   preferences {
-    section("General") {
-      input name: "logLevel", title: "Log Level", type: "enum", options:[[0:"Off"],[1:"Info"],[2:"Debug"],[3:"Trace"]], defaultValue: 0
+    section { // General
+      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL
     }
-    section("Configuration") {
+    section { // Configuration
       input name: "param20", title: "Default Load state (20)", description: "Used for indicating the default state of output load after re-power on", type: "enum", options:[[0:"Last state after power on"],[1:"Always on after re-power on"],[2:"Always off stare after re-power on"]], defaultValue: 0, required: true
       input name: "param111", title: "Report interval (111)", description: "Interval (seconds) between each report", type: "number", range: "0..268435456", defaultValue: 300, required: true
 
@@ -71,53 +68,44 @@ metadata {
 
 
 def installed() {
-  logger("trace", "installed(${VERSION})")
+  logger("debug", "installed(${VERSION})")
 
   if (state.deviceInfo == null) {
     state.deviceInfo = [:]
   }
   state.driverVer = VERSION
 
-  // Device-Watch simply pings if no device events received for 32min(checkInterval)
   initialize()
-  if (state?.mfr?.equals("0063") || state?.mfr?.equals("014F")) { // These old GE devices have to be polled. GoControl Plug refresh status every 15 min.
-    runEvery15Minutes("poll", [forceForLocallyExecuting: true])
-  }
+}
+
+def initialize() {
+  logger("debug", "initialize()")
+
+  sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 }
 
 def updated() {
-  logging "updated()", 2
+  logger("debug", "updated()")
 
   // Make sure installation has completed:
   if (!state.driverVer || state.driverVer != VERSION) {
     installed()
   }
 
-  // Device-Watch simply pings if no device events received for 32min(checkInterval)
-  initialize()
-  if (state?.mfr?.equals("0063") || state?.mfr?.equals("014F")) { // These old GE devices have to be polled. GoControl Plug refresh status every 15 min.
-    unschedule("poll", [forceForLocallyExecuting: true])
-    runEvery15Minutes("poll", [forceForLocallyExecuting: true])
-  }
   try {
     if (!state.MSR) {
       response(zwave.manufacturerSpecificV2.manufacturerSpecificGet().format())
     }
   } catch (e) {
-    log.debug e
+    logger("warn", "updated() - Exception: ${e.inspect()}")
   }
-}
-
-def initialize() {
-  logging "initialize()", 2
-
-  sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 }
 
 
 // parse events into attributes
 def parse(String description) {
-  logging "parse() - description: ${description.inspect()}", 2
+  logger("debug", "parse() - description: ${description.inspect()}")
+
 
   def result = null
   if (description != "updated") {
@@ -129,16 +117,19 @@ def parse(String description) {
       log.debug("Couldn't zwave.parse '$description'")
     }
   }
+
   result
 }
 
 
 def handleMeterReport(cmd){
+  logger("debug", "handleMeterReport() - cmd: ${cmd.inspect()}")
+
   def meterTypes = ["Unknown", "Electric", "Gas", "Water"]
   def electricNames = ["energy", "energy", "power", "count", "voltage", "current", "powerFactor", "unknown"]
   def electricUnits = ["kWh", "kVAh", "W", "pulses", "V", "A", "Power Factor", ""]
 
-  logging "handleMeterReport(deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${electricNames[cmd.scale]}(${cmd.scale}), unit: ${electricUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType})", 2
+  logger("info", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${electricNames[cmd.scale]}(${cmd.scale}), unit: ${electricUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
 
   //NOTE ScaledPreviousMeterValue does not always contain a value
   def previousValue = cmd.scaledPreviousMeterValue ?: 0
@@ -182,12 +173,13 @@ def handleMeterReport(cmd){
 }
 
 def zwaveEvent(hubitat.zwave.commands.meterv3.MeterReport cmd) {
-  logging "zwaveEvent(MeterReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(MeterReport) - cmd: ${cmd.inspect()}")
   handleMeterReport(cmd)
 }
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
-  logging "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
+
   def value = (cmd.value ? "on" : "off")
   def evt = createEvent(name: "switch", value: value, type: "physical", descriptionText: "$device.displayName was turned $value")
   if (evt.isStateChange) {
@@ -198,27 +190,29 @@ def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
 }
 
 def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
-  logging "zwaveEvent(SwitchBinaryReport) - cmd: ${cmd.inspect()}", 2
-  def value = (cmd.value ? "on" : "off")
+  logger("trace", "zwaveEvent(SwitchBinaryReport) - cmd: ${cmd.inspect()}")
+
+  String value = (cmd.value ? "on" : "off")
   createEvent(name: "switch", value: value, type: "digital", descriptionText: "$device.displayName was turned $value")
 }
 
 def zwaveEvent(hubitat.zwave.commands.hailv1.Hail cmd) {
-  logging "zwaveEvent(Hail) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(Hail) - cmd: ${cmd.inspect()}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
-  logging "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
+
   state.deviceInfo['applicationVersion'] = "${cmd.applicationVersion}"
   state.deviceInfo['applicationSubVersion'] = "${cmd.applicationSubVersion}"
   state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
   state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
   state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
-
 }
 
 def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
-  logging "zwaveEvent(DeviceSpecificReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(DeviceSpecificReport) - cmd: ${cmd.inspect()}")
+
   state.deviceInfo['deviceIdData'] = "${cmd.deviceIdData}"
   state.deviceInfo['deviceIdDataFormat'] = "${cmd.deviceIdDataFormat}"
   state.deviceInfo['deviceIdDataLengthIndicator'] = "l${cmd.deviceIdDataLengthIndicator}"
@@ -226,7 +220,7 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificRepor
 }
 
 def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
-  logging "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}")
 
   state.deviceInfo['manufacturerId'] = "${cmd.manufacturerId}"
   state.deviceInfo['manufacturerName'] = "${cmd.manufacturerName}"
@@ -242,22 +236,24 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
 }
 
 def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
-  logging "zwaveEvent(FirmwareMdReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(FirmwareMdReport) - cmd: ${cmd.inspect()}")
 
   state.deviceInfo['firmwareChecksum'] = "${cmd.checksum}"
   state.deviceInfo['firmwareId'] = "${cmd.firmwareId}"
 }
 
 def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
-    logging "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
 
-    def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
-    // logger("Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}","info")
-    // state.zwtGeneralMd.powerlevel = power
+  def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
+
+  // state.powerlevel = power
 }
 
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
-  logging "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
+
   //The temperature sensor only measures the internal temperature of product (Circuit board)
   if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
     createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: false )
@@ -265,12 +261,12 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
 }
 
 def zwaveEvent(hubitat.zwave.Command cmd) {
-  log.warn "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}"
+  logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
   [:]
 }
 
 def on() {
-  logging "on()", 2
+  logger("debug", "on()")
 
   secureSequence([
     zwave.basicV1.basicSet(value: 0xFF),
@@ -280,7 +276,7 @@ def on() {
 }
 
 def off() {
-  logging "off()", 2
+  logger("debug", "off()")
 
   secureSequence([
     zwave.basicV1.basicSet(value: 0x00),
@@ -293,12 +289,13 @@ def off() {
  * PING is used by Device-Watch in attempt to reach the Device
  * */
 def ping() {
-  logging "ping()", 2
+  logger("debug", "ping()")
+
   refresh()
 }
 
 def poll() {
-  logging "poll()", 2
+  logger("debug", "poll()")
 
   secureSequence([
     zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0),
@@ -313,8 +310,7 @@ def poll() {
 }
 
 def refresh() {
-  logging "refresh() - state: ${state.inspect()}", 2
-
+  logger("debug", "refresh() - state: ${state.inspect()}")
 
   secureSequence([
     zwave.versionV1.versionGet(),
@@ -332,7 +328,8 @@ def refresh() {
 }
 
 def configure() {
-  logging "configure()", 2
+  logger("debug", "configure()")
+
   def result = []
 
   Integer reportGroup;
@@ -354,7 +351,7 @@ def configure() {
 }
 
 def reset() {
-  logging "reset()", 2
+  logger("debug", "reset()")
 
   sendEvent(name: "power", value: "0", displayed: true, unit: "W")
   sendEvent(name: "energy", value: "0", displayed: true, unit: "kWh")
@@ -372,7 +369,7 @@ def reset() {
 }
 
 def clearState() {
-  logging "ClearStates() - Clearing device states", 2
+  logger("debug", "ClearStates() - Clearing device states")
 
   state.clear()
 
@@ -383,23 +380,24 @@ def clearState() {
   }
 }
 
-
-
 /*
  * Security encapsulation support:
  */
 def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
+  logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
+
   def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
   if (encapsulatedCommand) {
-    log.debug "Parsed SecurityMessageEncapsulation into: ${encapsulatedCommand}"
+    logger("debug", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
+
     zwaveEvent(encapsulatedCommand)
   } else {
-    log.warn "Unable to extract Secure command from $cmd"
+    logger("warn", "zwaveEvent(SecurityMessageEncapsulation) - Unable to extract Secure command from: ${cmd.inspect()}")
   }
 }
 
 private secure(hubitat.zwave.Command cmd) {
-  logging "secure(Command) - cmd: ${cmd.inspect()}", 3
+  logger("trace", "secure(Command) - cmd: ${cmd.inspect()}")
 
   if (state.sec) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -409,21 +407,10 @@ private secure(hubitat.zwave.Command cmd) {
 }
 
 private secureSequence(Collection commands, ...delayBetweenArgs=250) {
-  logging "secureSequence(Command) - commands: ${commands.inspect()}", 3
+  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()}")
   delayBetween(commands.collect{ secure(it) }, *delayBetweenArgs)
 }
 
-private logging(msg,level=1) {
-  logLevel = logLevel ?: 0
-
-  if (logLevel > 2 && level == 3) {
-    log.trace "${msg}"
-  } else if (logLevel > 1 && level == 2) {
-    log.debug "${msg}"
-  } else if (logLevel > 0 && level == 1) {
-    log.info "${msg}"
-  }
-}
 /**
  * @param level Level to log at, see LOG_LEVELS for options
  * @param msg Message to log
