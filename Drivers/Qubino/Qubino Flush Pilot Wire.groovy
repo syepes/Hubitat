@@ -11,15 +11,24 @@
  *
  */
 
+import groovy.transform.Field
+
+@Field String VERSION = "1.0.0"
+
+@Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
+@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
+
 metadata {
   definition (name: "Qubino Flush Pilot Wire", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Pilot%20Wire.groovy") {
     capability "Actuator"
-    capability "Refresh"
-    capability "Sensor"
-    capability "Polling"
-    capability "Health Check"
     capability "Switch"
     capability "Switch Level"
+    capability "Sensor"
+    capability "Temperature Measurement"
+    capability "Refresh"
+    capability "Polling"
+    capability "Configuration"
+    capability "Initialize"
 
     command "clearState"
     command "pilotMode", [[name:"mode",type:"ENUM", description:"Pilot mode", constraints: ["Stop","Anti Freeze","Eco","Comfort-2","Comfort-1","Comfort"]]]
@@ -30,66 +39,143 @@ metadata {
   }
 
   preferences {
-    input name: "logLevel", type: "enum", title: "Log Level", options:[[0:"Off"],[1:"Info"],[2:"Debug"],[3:"Trace"]], defaultValue: 0
+    section { // General
+      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL
+      input type: " "
+      input type: " "
+    }
+    section { // Configuration
+      input name: "param1", title: "Input 1 (1)", description: "Switch type", type: "enum", options:[[0:"mono-stable switch type (push button)"],[1:"bi-stable switch type"]], defaultValue: 1, required: true
+      input name: "param4", title: "Input 1 (4)", description: "Contact type", type: "enum", options:[[0:"NO (normally open) input type"],[1:"NC (normally close) input type"]], defaultValue: 0, required: true
+      input name: "param11", title: "Input 1 (11)", description: "Operation mode", type: "enum", options:[[0:"Does not influence on selected mode"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 1, required: true
+
+      input name: "param2", title: "Input 2 (2)", description: "Switch type", type: "enum", options:[[0:"mono-stable switch type (push button)"],[1:"bi-stable switch type"]], defaultValue: 1, required: true
+      input name: "param5", title: "Input 2 (5)", description: "Contact type", type: "enum", options:[[0:"NO (normally open) input type"],[1:"NC (normally close) input type"]], defaultValue: 0, required: true
+      input name: "param12", title: "Input 2 (12)", description: "Operation mode", type: "enum", options:[[0:"Does not influence on selected mode"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 4, required: true
+
+      input name: "param3", title: "Input 3 (3)", description: "Switch type", type: "enum", options:[[0:"mono-stable switch type (push button)"],[1:"bi-stable switch type"]], defaultValue: 1, required: true
+      input name: "param6", title: "Input 3 (6)", description: "Contact type", type: "enum", options:[[0:"NO (normally open) input type"],[1:"NC (normally close) input type"]], defaultValue: 0, required: true
+      input name: "param13", title: "Input 3 (13)", description: "Operation mode", type: "enum", options:[[0:"Does not influence on selected mode"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 5, required: true
+    }
   }
 }
 
+def installed() {
+  logger("debug", "installed(${VERSION})")
 
-def updated() {
-  logging "updated() - state: ${state.inspect()}", 2
+  if (state.deviceInfo == null) {
+    state.deviceInfo = [:]
+  }
+  state.driverVer = VERSION
+
+  initialize()
+}
+
+def initialize() {
+  logger("debug", "initialize()")
+
   sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 }
 
+def updated() {
+  logger("debug", "updated()")
+
+  // Make sure installation has completed:
+  if (!state.driverVer || state.driverVer != VERSION) {
+    installed()
+  }
+}
+
 def ping() {
-  logging "ping()", 2
+  logger("debug", "ping()")
+
   refresh()
 }
 
 def poll() {
-  logging "poll()", 2
-  refresh()
+  logger("debug", "poll()")
+
+  secureSequence([
+    zwave.powerlevelV1.powerlevelGet(),
+    zwave.basicV1.basicGet(),
+    zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.switchMultilevelV1.switchMultilevelGet(),
+    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0)
+  ], 100)
 }
 
 def refresh() {
-  logging "refresh() - state: ${state.inspect()}", 2
+  logger("debug", "refresh() - state: ${state.inspect()}")
 
-  def cmds = secureSequence([zwave.switchBinaryV1.switchBinaryGet(), zwave.switchMultilevelV1.switchMultilevelGet()], 100)
-  if (getDataValue("MSR") == null) {
-    cmds << secure(zwave.manufacturerSpecificV1.manufacturerSpecificGet())
-  }
-
-  cmds
-}
-
-def clearState() {
-  logging "ClearStates() - Clearing device states", 2
-
-  state.clear()
+  secureSequence([
+    zwave.powerlevelV1.powerlevelGet(),
+    zwave.versionV1.versionGet(),
+    zwave.firmwareUpdateMdV2.firmwareMdGet(),
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+    zwave.basicV1.basicGet(),
+    zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.switchMultilevelV1.switchMultilevelGet(),
+    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0)
+  ], 100)
 }
 
 def on() {
-  logging "on()", 2
+  logger("debug", "on()")
 
   secureSequence([
     zwave.basicV1.basicSet(value: 0xFF),
+    zwave.switchBinaryV1.switchBinaryGet(),
     zwave.switchMultilevelV1.switchMultilevelGet()
   ], 3500)
 }
 
 def off() {
-  logging "off()", 2
+  logger("debug", "off()")
 
   secureSequence([
     zwave.basicV1.basicSet(value: 0x00),
+    zwave.switchBinaryV1.switchBinaryGet(),
     zwave.switchMultilevelV1.switchMultilevelGet()
   ], 3500)
 }
 
-def setLevel(value) {
-  logging "setLevel(${value})", 2
+def configure() {
+  logger("debug", "configure()")
 
-  def valueaux = value as Integer
-  def level = Math.max(Math.min(valueaux, 99), 0)
+  def result = []
+
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: new Integer("$param1"))))
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: new Integer("$param4"))))
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 11, size: 1, scaledConfigurationValue: new Integer("$param11"))))
+
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: new Integer("$param2"))))
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 5, size: 1, scaledConfigurationValue: new Integer("$param5"))))
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 12, size: 1, scaledConfigurationValue: new Integer("$param12"))))
+
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: new Integer("$param3"))))
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 6, size: 1, scaledConfigurationValue: new Integer("$param6"))))
+  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 13, size: 1, scaledConfigurationValue: new Integer("$param13"))))
+
+  result
+}
+
+def clearState() {
+  logger("debug", "ClearStates() - Clearing device states")
+
+  state.clear()
+
+  if (state.deviceInfo == null) {
+    state.deviceInfo = [:]
+  } else {
+    state.deviceInfo.clear()
+  }
+}
+
+def setLevel(value) {
+  logger("debug", "setLevel(${value})")
+
+  Integer valueaux = value as Integer
+  Integer level = Math.max(Math.min(valueaux, 99), 0)
   secureSequence([
     zwave.basicV1.basicSet(value: level),
     zwave.switchMultilevelV1.switchMultilevelGet()
@@ -97,114 +183,178 @@ def setLevel(value) {
 }
 
 def setLevel(value, duration) {
-  logging "setLevel(${value}, ${duration})", 2
+  logger("debug", "setLevel(${value}, ${duration})")
 
-  def valueaux = value as Integer
-  def level = Math.max(Math.min(valueaux, 99), 0)
-  def dimmingDuration = duration < 128 ? duration : 128 + Math.round(duration / 60)
+  Integer valueaux = value as Integer
+  Integer level = Math.max(Math.min(valueaux, 99), 0)
+  Integer dimmingDuration = duration < 128 ? duration : 128 + Math.round(duration / 60)
   secure(zwave.switchMultilevelV2.switchMultilevelSet(value: level, dimmingDuration: dimmingDuration))
 }
 
 def pilotMode(mode="Stop") {
   // Validate modes
   Integer mode_value = null
-  LinkedHashMap mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",100:"Comfort"]
+  Map mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",100:"Comfort"]
   mode_map.each { it->
     if (it.value == mode) { mode_value = it.key }
   }
 
   if (mode_value == null) {
-    log.error "pilotMode(${mode}) - Mode is incorrect"
+    logger("error", "pilotMode(${mode}) - Mode is incorrect")
   } else {
-    logging "pilotMode(${mode}) - Mode value = ${mode_value}", 1
+    logger("info", "pilotMode(${mode}) - Mode value = ${mode_value}")
     sendEvent(name: "mode", value: mode, displayed:true, isStateChange: true)
     setLevel(mode_value)
   }
 }
 
 def parse(String description) {
-  logging "parse() - description: ${description.inspect()}", 2
+  logger("debug", "parse() - description: ${description.inspect()}")
 
+  def result = null
   if (description.startsWith("Err 106")) {
     state.sec = 0
     createEvent(descriptionText: description, isStateChange: true)
   } else {
-    def cmd = zwave.parse(description, [0x20: 1, 0x26: 3, 0x70: 1, 0x32:3, 0x98: 1])
-    logging "parse() - description: ${description.inspect()} to cmd: ${cmd.inspect()}", 3
-
+    def cmd = zwave.parse(description, commandClassVersions)
     if (cmd) {
-      zwaveEvent(cmd)
+      result = zwaveEvent(cmd)
+      logger("debug", "parse() - description: ${description.inspect()} to cmd: ${cmd.inspect()} with result: ${result.inspect()}")
+
     } else {
-      log.error("parse() - Non-parsed event: '$description'")
-      null
+      logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
+      result = null
     }
+  }
+
+  result
+}
+
+def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
+  logger("trace", "zwaveEvent(switchmultilevelv1.BasicReport) - cmd: ${cmd.inspect()}")
+  setLevelEvent(cmd)
+}
+
+def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
+  logger("trace", "zwaveEvent(SwitchBinaryReport) - cmd: ${cmd.inspect()}")
+
+  String value = (cmd.value ? "on" : "off")
+  createEvent(name: "switch", value: value, type: "digital", descriptionText: "$device.displayName was turned $value")
+}
+
+def zwaveEvent(hubitat.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd) {
+  logger("trace", "zwaveEvent(switchmultilevelv1.SwitchMultilevelReport) - cmd: ${cmd.inspect()}")
+  setLevelEvent(cmd)
+}
+
+def zwaveEvent(hubitat.zwave.commands.switchmultilevelv2.SwitchMultilevelReport cmd) {
+  logger("trace", "zwaveEvent(switchmultilevelv1.SwitchMultilevelReport) - cmd: ${cmd.inspect()}")
+  setLevelEvent(cmd)
+}
+
+def zwaveEvent(hubitat.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd) {
+  logger("trace", "zwaveEvent(switchmultilevelv3.SwitchMultilevelReport) - cmd: ${cmd.inspect()}")
+  setLevelEvent(cmd)
+}
+
+def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
+  logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
+
+  //The temperature sensor only measures the internal temperature of product (Circuit board)
+  if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
+    createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
   }
 }
 
-def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
-  logging "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}", 2
-  logging "manufacturerId:   ${cmd.manufacturerId}\nmanufacturerName: ${cmd.manufacturerName}\nproductId:        ${cmd.productId}\nproductTypeId:    ${cmd.productTypeId}", 3
+def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
+  logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
 
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  state.deviceInfo['applicationVersion'] = "${cmd.applicationVersion}"
+  state.deviceInfo['applicationSubVersion'] = "${cmd.applicationSubVersion}"
+  state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
+  state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
+  state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
+}
+
+def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
+  logger("trace", "zwaveEvent(DeviceSpecificReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['deviceIdData'] = "${cmd.deviceIdData}"
+  state.deviceInfo['deviceIdDataFormat'] = "${cmd.deviceIdDataFormat}"
+  state.deviceInfo['deviceIdDataLengthIndicator'] = "l${cmd.deviceIdDataLengthIndicator}"
+  state.deviceInfo['deviceIdType'] = "${cmd.deviceIdType}"
+}
+
+def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
+  logger("trace", "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['manufacturerId'] = "${cmd.manufacturerId}"
+  state.deviceInfo['manufacturerName'] = "${cmd.manufacturerName}"
+  state.deviceInfo['productId'] = "${cmd.productId}"
+  state.deviceInfo['productTypeId'] = "${cmd.productTypeId}"
+
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", cmd.manufacturerName)
-  createEvent([descriptionText: "$device.displayName MSR: $msr", isStateChange: false])
+
+  createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
+}
+
+def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
+  logger("trace", "zwaveEvent(FirmwareMdReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['firmwareChecksum'] = "${cmd.checksum}"
+  state.deviceInfo['firmwareId'] = "${cmd.firmwareId}"
+}
+
+def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
+  logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
+
+  def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
+
+  // state.powerlevel = power
 }
 
 def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
-  logging "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}", 2
+  logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
 
-  def encapsulatedCommand = cmd.encapsulatedCommand([0x20: 1, 0x26: 3, 0x32: 3])
+  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
   state.sec = 1
   if (encapsulatedCommand) {
     zwaveEvent(encapsulatedCommand)
   }
 }
 
+def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
+  logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
+
+  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions) // can specify command class versions here like in zwave.parse
+  if (encapsulatedCommand) {
+    return zwaveEvent(encapsulatedCommand)
+  }
+}
+
 def zwaveEvent(hubitat.zwave.Command cmd) {
-  logging "zwaveEvent(Command) - cmd: ${cmd.inspect()}", 2
-
-  def linkText = device.label ?: device.name
-  [linkText: linkText, descriptionText: "$linkText: $cmd", displayed: false]
-}
-
-def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
-  logging "zwaveEvent(switchmultilevelv1.BasicReport) - cmd: ${cmd.inspect()}", 2
-  setLevelEvent(cmd)
-}
-
-def zwaveEvent(hubitat.zwave.commands.switchmultilevelv1.SwitchMultilevelReport cmd) {
-  logging "zwaveEvent(switchmultilevelv1.SwitchMultilevelReport) - cmd: ${cmd.inspect()}", 2
-  setLevelEvent(cmd)
-}
-
-def zwaveEvent(hubitat.zwave.commands.switchmultilevelv2.SwitchMultilevelReport cmd) {
-  logging "zwaveEvent(switchmultilevelv1.SwitchMultilevelReport) - cmd: ${cmd.inspect()}", 2
-  setLevelEvent(cmd)
-}
-
-def zwaveEvent(hubitat.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd) {
-  logging "zwaveEvent(switchmultilevelv3.SwitchMultilevelReport) - cmd: ${cmd.inspect()}", 2
-  setLevelEvent(cmd)
+  logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
+  [:]
 }
 
 private setLevelEvent(hubitat.zwave.Command cmd) {
-  logging "setLevelEvent(Command) - cmd: ${cmd.inspect()}", 2
+  logger("debug", "setLevelEvent(Command) - cmd: ${cmd.inspect()}")
 
-  def value = (cmd.value ? "on" : "off")
-  def result = [createEvent(name: "switch", value: value, descriptionText: "$device.displayName was turned $value")]
+  String value = (cmd.value ? "on" : "off")
+  Map mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",99:"Comfort", 100:"Comfort"]
 
-  if (cmd.value) {
-    result << createEvent(name: "level", value: cmd.value == 99 ? 100 : cmd.value , unit: "%")
+  def result = [createEvent(name: "switch", value: value, descriptionText: "$device.displayName was turned $value", isStateChange: true)]
+  result << createEvent(name: "level", value: cmd.value == 99 ? 100 : cmd.value , unit: "%")
+  result << createEvent(name: "mode", value: mode_map[cmd.value?.toInteger()], isStateChange: true)
 
-    LinkedHashMap mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",99:"Comfort", 100:"Comfort"]
-    result << createEvent(name: "mode", value: mode_map[cmd.value] == null ? 'Unknown' : mode_map[cmd.value] )
-  }
   return result
 }
 
 private secure(hubitat.zwave.Command cmd) {
-  logging "secure(Command) - cmd: ${cmd.inspect()}", 3
+  logger("trace", "secure(Command) - cmd: ${cmd.inspect()}")
 
   if (state.sec) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -214,18 +364,23 @@ private secure(hubitat.zwave.Command cmd) {
 }
 
 private secureSequence(Collection commands, ...delayBetweenArgs=4200) {
-  logging "secureSequence(Command) - commands: ${commands.inspect()}", 3
+  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()}")
   delayBetween(commands.collect{ secure(it) }, *delayBetweenArgs)
 }
 
-private logging(msg,level=1) {
-  logLevel = logLevel ?: 0
-
-  if (logLevel > 2 && level == 3) {
-    log.trace "${msg}"
-  } else if (logLevel > 1 && level == 2) {
-    log.debug "${msg}"
-  } else if (logLevel > 0 && level == 1) {
-    log.info "${msg}"
+/**
+ * @param level Level to log at, see LOG_LEVELS for options
+ * @param msg Message to log
+ */
+private logger(level, msg) {
+  if (level && msg) {
+    Integer levelIdx = LOG_LEVELS.indexOf(level)
+    Integer setLevelIdx = LOG_LEVELS.indexOf(logLevel)
+    if (setLevelIdx < 0) {
+      setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
+    }
+    if (levelIdx <= setLevelIdx) {
+      log."${level}" "${msg}"
+    }
   }
 }
