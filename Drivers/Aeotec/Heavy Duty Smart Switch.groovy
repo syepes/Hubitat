@@ -47,6 +47,8 @@ metadata {
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL
     }
     section { // Configuration
+      input name: "switchAll", title: "Respond to switch all", description: "How does the switch respond to the 'Switch All' command", type: "enum", options:["Disabled", "Off Enabled", "On Enabled", "On And Off Enabled"], defaultValue: "On And Off Enabled", required:false
+
       input name: "param20", title: "Default Load state (20)", description: "Used for indicating the default state of output load after re-power on", type: "enum", options:[[0:"Last state after power on"],[1:"Always on after re-power on"],[2:"Always off stare after re-power on"]], defaultValue: 0, required: true
       input name: "param111", title: "Report interval (111)", description: "Interval (seconds) between each report", type: "number", range: "0..268435456", defaultValue: 300, required: true
 
@@ -162,6 +164,15 @@ def off() {
 def configure() {
   logger("debug", "configure()")
 
+  def switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_INCLUDED_IN_THE_ALL_ON_ALL_OFF_FUNCTIONALITY
+  if (switchAll == "Disabled") {
+    switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_EXCLUDED_FROM_THE_ALL_ON_ALL_OFF_FUNCTIONALITY
+  } else if (switchAll == "Off Enabled") {
+    switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_EXCLUDED_FROM_THE_ALL_ON_FUNCTIONALITY_BUT_NOT_ALL_OFF
+  } else if (switchAll == "On Enabled") {
+    switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_EXCLUDED_FROM_THE_ALL_OFF_FUNCTIONALITY_BUT_NOT_ALL_ON
+  }
+
   def result = []
 
   Integer reportGroup;
@@ -170,6 +181,7 @@ def configure() {
   reportGroup += ("$param101_watts" == "true" ? 4 : 0)
   reportGroup += ("$param101_currentUsage" == "true" ? 8 : 0)
 
+  result << response(secure(zwave.switchAllV1.switchAllSet(mode: switchAllMode)))
   result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 20, size: 1, scaledConfigurationValue: new BigInteger("$param20"))))
   result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: new BigInteger("$param111"))))
   result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: reportGroup)))
