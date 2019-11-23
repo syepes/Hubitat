@@ -3,7 +3,7 @@
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
@@ -36,6 +36,7 @@ metadata {
 
     fingerprint mfr: "0159", prod: "0004", model: "0001", deviceJoinName: "Qubino Flush Pilot Wire" // ZMNHJA2
     fingerprint mfr: "0159", prod: "0004", model: "0051", deviceJoinName: "Qubino Flush Pilot Wire" // ZMNHJD1 (868,4 MHz - EU)
+    fingerprint deviceId: "81", inClusters: "0x5E, 0x86, 0x72, 0x5A, 0x73, 0x20, 0x27, 0x25, 0x26, 0x31, 0x60, 0x85, 0x8E, 0x59, 0x70" // ZMNHJD1 (868,4 MHz - EU)
   }
 
   preferences {
@@ -45,17 +46,17 @@ metadata {
       input type: " "
     }
     section { // Configuration
-      input name: "param1", title: "Input 1 (1)", description: "Switch type", type: "enum", options:[[0:"mono-stable switch type (push button)"],[1:"bi-stable switch type"]], defaultValue: 1, required: true
-      input name: "param4", title: "Input 1 (4)", description: "Contact type", type: "enum", options:[[0:"NO (normally open) input type"],[1:"NC (normally close) input type"]], defaultValue: 0, required: true
-      input name: "param11", title: "Input 1 (11)", description: "Operation mode", type: "enum", options:[[0:"Does not influence on selected mode"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 1, required: true
+      input name: "param1", title: "Input 1 (1)", description: "Switch type", type: "enum", options:[[0:"mono-stable (Push button)"],[1:"bi-stable (Toggle switch)"]], defaultValue: 1, required: true
+      input name: "param4", title: "Input 1 (4)", description: "Contact type", type: "enum", options:[[0:"NO (Normally open)"],[1:"NC (Normally close)"]], defaultValue: 0, required: true
+      input name: "param11", title: "Input 1 (11)", description: "Operation mode", type: "enum", options:[[0:"No change"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 1, required: true
 
-      input name: "param2", title: "Input 2 (2)", description: "Switch type", type: "enum", options:[[0:"mono-stable switch type (push button)"],[1:"bi-stable switch type"]], defaultValue: 1, required: true
-      input name: "param5", title: "Input 2 (5)", description: "Contact type", type: "enum", options:[[0:"NO (normally open) input type"],[1:"NC (normally close) input type"]], defaultValue: 0, required: true
-      input name: "param12", title: "Input 2 (12)", description: "Operation mode", type: "enum", options:[[0:"Does not influence on selected mode"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 4, required: true
+      input name: "param2", title: "Input 2 (2)", description: "Switch type", type: "enum", options:[[0:"mono-stable (Push button)"],[1:"bi-stable (Toggle switch)"]], defaultValue: 1, required: true
+      input name: "param5", title: "Input 2 (5)", description: "Contact type", type: "enum", options:[[0:"NO (Normally open)"],[1:"NC (Normally close)"]], defaultValue: 0, required: true
+      input name: "param12", title: "Input 2 (12)", description: "Operation mode", type: "enum", options:[[0:"No change"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 4, required: true
 
-      input name: "param3", title: "Input 3 (3)", description: "Switch type", type: "enum", options:[[0:"mono-stable switch type (push button)"],[1:"bi-stable switch type"]], defaultValue: 1, required: true
-      input name: "param6", title: "Input 3 (6)", description: "Contact type", type: "enum", options:[[0:"NO (normally open) input type"],[1:"NC (normally close) input type"]], defaultValue: 0, required: true
-      input name: "param13", title: "Input 3 (13)", description: "Operation mode", type: "enum", options:[[0:"Does not influence on selected mode"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 5, required: true
+      input name: "param3", title: "Input 3 (3)", description: "Switch type", type: "enum", options:[[0:"mono-stable (Push button)"],[1:"bi-stable (Toggle switch)"]], defaultValue: 1, required: true
+      input name: "param6", title: "Input 3 (6)", description: "Contact type", type: "enum", options:[[0:"NO (Normally open)"],[1:"NC (Normally close)"]], defaultValue: 0, required: true
+      input name: "param13", title: "Input 3 (13)", description: "Operation mode", type: "enum", options:[[0:"No change"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 5, required: true
     }
   }
 }
@@ -73,23 +74,17 @@ def installed() {
 
 def initialize() {
   logger("debug", "initialize()")
-
-  sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 }
 
 def updated() {
   logger("debug", "updated()")
 
-  // Make sure installation has completed:
   if (!state.driverVer || state.driverVer != VERSION) {
     installed()
   }
-}
 
-def ping() {
-  logger("debug", "ping()")
-
-  refresh()
+  unschedule()
+  configure()
 }
 
 def poll() {
@@ -142,21 +137,25 @@ def off() {
 def configure() {
   logger("debug", "configure()")
 
-  def result = []
+  def cmds = []
+  def results = []
 
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: new Integer("$param1"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: new Integer("$param4"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 11, size: 1, scaledConfigurationValue: new Integer("$param11"))))
+  cmds = cmds + secureSequence([
+    zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: param4.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 11, size: 1, scaledConfigurationValue: param11.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: param2.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 5, size: 1, scaledConfigurationValue: param5.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 12, size: 1, scaledConfigurationValue: param12.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: param3.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 6, size: 1, scaledConfigurationValue: param6.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 13, size: 1, scaledConfigurationValue: param13.toInteger())
+  ], 500)
 
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: new Integer("$param2"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 5, size: 1, scaledConfigurationValue: new Integer("$param5"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 12, size: 1, scaledConfigurationValue: new Integer("$param12"))))
+  results = results + response(cmds)
+  logger("debug", "configure() - results: ${results.inspect()}")
 
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: new Integer("$param3"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 6, size: 1, scaledConfigurationValue: new Integer("$param6"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 13, size: 1, scaledConfigurationValue: new Integer("$param13"))))
-
-  result
+  results
 }
 
 def clearState() {
@@ -211,11 +210,8 @@ def pilotMode(mode="Stop") {
 def parse(String description) {
   logger("debug", "parse() - description: ${description.inspect()}")
 
-  def result = null
-  if (description.startsWith("Err 106")) {
-    state.sec = 0
-    createEvent(descriptionText: description, isStateChange: true)
-  } else {
+  def result = []
+  if (description != "updated") {
     def cmd = zwave.parse(description, commandClassVersions)
     if (cmd) {
       result = zwaveEvent(cmd)
@@ -223,7 +219,6 @@ def parse(String description) {
 
     } else {
       logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
-      result = null
     }
   }
 
@@ -231,7 +226,7 @@ def parse(String description) {
 }
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
-  logger("trace", "zwaveEvent(switchmultilevelv1.BasicReport) - cmd: ${cmd.inspect()}")
+  logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
   setLevelEvent(cmd)
 }
 
@@ -257,6 +252,11 @@ def zwaveEvent(hubitat.zwave.commands.switchmultilevelv3.SwitchMultilevelReport 
   setLevelEvent(cmd)
 }
 
+def zwaveEvent(hubitat.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
+  logger("trace", "zwaveEvent(SensorBinaryReport) - cmd: ${cmd.inspect()}")
+  logger("warn", "zwaveEvent(SensorBinaryReport) - cmd: ${cmd.inspect()}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
 
@@ -264,6 +264,13 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
   if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
     createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
   }
+}
+
+def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
+  logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
+
+  def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
@@ -274,6 +281,8 @@ def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
   state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
   state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
   state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
+
+  updateDataValue("firmware", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
@@ -307,32 +316,57 @@ def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
   state.deviceInfo['firmwareId'] = "${cmd.firmwareId}"
 }
 
-def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
-  logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
-
-  def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
-  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
-
-  // state.powerlevel = power
-}
-
 def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
   logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
 
+  setSecured()
   def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
-  state.sec = 1
   if (encapsulatedCommand) {
+    logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand)
+
+  } else {
+    logger("warn", "zwaveEvent(SecurityMessageEncapsulation) - Unable to extract Secure command from: ${cmd.inspect()}")
+  }
+}
+
+def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
+  logger("trace", "zwaveEvent(Crc16Encap) - cmd: ${cmd.inspect()}")
+
+  def encapsulatedCommand = zwave.getCommand(cmd.commandClass, cmd.command, cmd.data)
+  if (encapsulatedCommand) {
+    logger("trace", "zwaveEvent(Crc16Encap) - encapsulatedCommand: ${encapsulatedCommand}")
+    zwaveEvent(encapsulatedCommand)
+  } else {
+    logger("warn", "zwaveEvent(Crc16Encap) - Unable to extract CRC16 command from: ${cmd.inspect()}")
   }
 }
 
 def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
   logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
 
-  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions) // can specify command class versions here like in zwave.parse
+  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
   if (encapsulatedCommand) {
-    return zwaveEvent(encapsulatedCommand)
+    logger("trace", "zwaveEvent(MultiChannelCmdEncap) - encapsulatedCommand: ${encapsulatedCommand}")
+    zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
+  } else {
+    logger("warn", "zwaveEvent(MultiChannelCmdEncap) - Unable to extract MultiChannel command from: ${cmd.inspect()}")
   }
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.SecuritySchemeReport cmd) {
+  logger("trace", "zwaveEvent(SecuritySchemeReport) - cmd: ${cmd.inspect()}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
+  logger("trace", "zwaveEvent(SecurityCommandsSupportedReport) - cmd: ${cmd.inspect()}")
+  setSecured()
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.NetworkKeyVerify cmd) {
+  logger("trace", "zwaveEvent(NetworkKeyVerify) - cmd: ${cmd.inspect()}")
+  logger("info", "Secure inclusion was successful")
+  setSecured()
 }
 
 def zwaveEvent(hubitat.zwave.Command cmd) {
@@ -354,18 +388,25 @@ private setLevelEvent(hubitat.zwave.Command cmd) {
 }
 
 private secure(hubitat.zwave.Command cmd) {
-  logger("trace", "secure(Command) - cmd: ${cmd.inspect()}")
+  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
 
-  if (state.sec) {
+  if (isSecured()) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
   } else {
     cmd.format()
   }
 }
 
-private secureSequence(Collection commands, ...delayBetweenArgs=4200) {
-  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()}")
-  delayBetween(commands.collect{ secure(it) }, *delayBetweenArgs)
+private secureSequence(Collection commands, Integer delayBetweenArgs=4200) {
+  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+}
+
+private setSecured() {
+  updateDataValue("secured", "true")
+}
+private isSecured() {
+  getDataValue("secured") == "true"
 }
 
 /**

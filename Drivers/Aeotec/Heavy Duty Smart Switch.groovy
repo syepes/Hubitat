@@ -1,13 +1,13 @@
 /**
  *
- *	Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *	in compliance with the License. You may obtain a copy of the License at:
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
  *
- *		http://www.apache.org/licenses/LICENSE-2.0
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
- *	Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *	on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *	for the specific language governing permissions and limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
  *
  */
 
@@ -38,8 +38,9 @@ metadata {
     attribute "current", "number"
 
     fingerprint inClusters: "0x25,0x32"
-    fingerprint mfr: "0086", prod: "0003", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //EU
     fingerprint mfr: "0086", prod: "0103", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //US
+    fingerprint mfr: "0086", prod: "0003", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //EU
+    fingerprint deviceId: " 78", inClusters: "0x5E, 0x25, 0x32, 0x31, 0x27, 0x2C, 0x2B, 0x70, 0x85, 0x59, 0x56, 0x72, 0x86, 0x7A, 0x73, 0x98"
   }
 
   preferences {
@@ -48,14 +49,15 @@ metadata {
     }
     section { // Configuration
       input name: "switchAll", title: "Respond to switch all", description: "How does the switch respond to the 'Switch All' command", type: "enum", options:["Disabled", "Off Enabled", "On Enabled", "On And Off Enabled"], defaultValue: "On And Off Enabled", required:false
+      input name: "report_temp", title: "Report Temperature", description: "", type: "bool", defaultValue: false, required: true
 
       input name: "param20", title: "Default Load state (20)", description: "Used for indicating the default state of output load after re-power on", type: "enum", options:[[0:"Last state after power on"],[1:"Always on after re-power on"],[2:"Always off stare after re-power on"]], defaultValue: 0, required: true
       input name: "param111", title: "Report interval (111)", description: "Interval (seconds) between each report", type: "number", range: "0..268435456", defaultValue: 300, required: true
 
-      input name: "param101_voltage", title: "Report Instantaneous Voltage (101)", description: "", type: "bool", defaultValue: "true", required: true
-      input name: "param101_current", title: "Report Instantaneous Current (Amperes) (101)", description: "", type: "bool", defaultValue: "true", required: true
-      input name: "param101_watts", title: "Report Instantaneous Watts (101)", description: "", type: "bool", defaultValue: "true", required: true
-      input name: "param101_currentUsage", title: "Report Accumulated kWh (101)", description: "", type: "bool", defaultValue: "true", required: true
+      input name: "param101_voltage", title: "Report Instantaneous Voltage (101)", description: "", type: "bool", defaultValue: true, required: true
+      input name: "param101_current", title: "Report Instantaneous Current (Amperes) (101)", description: "", type: "bool", defaultValue: true, required: true
+      input name: "param101_watts", title: "Report Instantaneous Watts (101)", description: "", type: "bool", defaultValue: true, required: true
+      input name: "param101_currentUsage", title: "Report Accumulated kWh (101)", description: "", type: "bool", defaultValue: true, required: true
 
       input name: "param80", title: "Load change notifications (80)", description: "Send notifications when the state of the load is changed", type: "enum", options:[[0:"Send Nothing (Disabled)"],[1:"Send HAIL Command"],[2:"Send BASIC Report Command"]], defaultValue: 0, required: true
 
@@ -79,31 +81,21 @@ def installed() {
 
 def initialize() {
   logger("debug", "initialize()")
-
-  sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 }
 
 def updated() {
   logger("debug", "updated()")
 
-  // Make sure installation has completed:
   if (!state.driverVer || state.driverVer != VERSION) {
     installed()
   }
 
-  try {
-    if (!state.MSR) {
-      response(zwave.manufacturerSpecificV2.manufacturerSpecificGet().format())
-    }
-  } catch (e) {
-    logger("warn", "updated() - Exception: ${e.inspect()}")
+  if (!state.MSR) {
+    refresh()
   }
-}
 
-def ping() {
-  logger("debug", "ping()")
-
-  refresh()
+  unschedule()
+  configure()
 }
 
 def poll() {
@@ -120,6 +112,12 @@ def poll() {
     zwave.meterV3.meterGet(scale: 4), // volts
     zwave.meterV3.meterGet(scale: 5)  // amps
   ])
+}
+
+def pollTemp() {
+  logger("debug", "pollTemp()")
+  // The temperature sensor only measures the internal temperature of product (Circuit board)
+  secure(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0))
 }
 
 def refresh() {
@@ -164,6 +162,13 @@ def off() {
 def configure() {
   logger("debug", "configure()")
 
+  def cmds = []
+  def results = []
+
+  if (report_temp) {
+    schedule("0 */5 * ? * *", pollTemp)
+  }
+
   def switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_INCLUDED_IN_THE_ALL_ON_ALL_OFF_FUNCTIONALITY
   if (switchAll == "Disabled") {
     switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_EXCLUDED_FROM_THE_ALL_ON_ALL_OFF_FUNCTIONALITY
@@ -173,25 +178,27 @@ def configure() {
     switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_EXCLUDED_FROM_THE_ALL_OFF_FUNCTIONALITY_BUT_NOT_ALL_ON
   }
 
-  def result = []
-
   Integer reportGroup;
   reportGroup = ("$param101_voltage" == "true" ? 1 : 0)
   reportGroup += ("$param101_current" == "true" ? 2 : 0)
   reportGroup += ("$param101_watts" == "true" ? 4 : 0)
   reportGroup += ("$param101_currentUsage" == "true" ? 8 : 0)
 
-  result << response(secure(zwave.switchAllV1.switchAllSet(mode: switchAllMode)))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 20, size: 1, scaledConfigurationValue: new BigInteger("$param20"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: new BigInteger("$param111"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: reportGroup)))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 80, size: 1, scaledConfigurationValue: new BigInteger("$param80"))))
+  cmds = cmds + secureSequence([
+    zwave.switchAllV1.switchAllSet(mode: switchAllMode),
+    zwave.configurationV1.configurationSet(parameterNumber: 20, size: 1, scaledConfigurationValue: param20.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: param111.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: reportGroup),
+    zwave.configurationV1.configurationSet(parameterNumber: 80, size: 1, scaledConfigurationValue: param80.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 90, size: 1, scaledConfigurationValue: 1),
+    zwave.configurationV1.configurationSet(parameterNumber: 91, size: 2, scaledConfigurationValue: param91.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 92, size: 1, scaledConfigurationValue: param92.toInteger())
+  ], 500)
 
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 90, size: 1, scaledConfigurationValue: 1)))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 91, size: 2, scaledConfigurationValue: new BigInteger("$param91"))))
-  result << response(secure(zwave.configurationV1.configurationSet(parameterNumber: 92, size: 1, scaledConfigurationValue: new BigInteger("$param92"))))
+  results = results + response(cmds)
+  logger("debug", "configure() - results: ${results.inspect()}")
 
-  result
+  results
 }
 
 def reset() {
@@ -224,12 +231,10 @@ def clearState() {
   }
 }
 
-// parse events into attributes
 def parse(String description) {
   logger("debug", "parse() - description: ${description.inspect()}")
 
-
-  def result = null
+  def result = []
   if (description != "updated") {
     def cmd = zwave.parse(description, commandClassVersions)
     if (cmd) {
@@ -238,7 +243,6 @@ def parse(String description) {
 
     } else {
       logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
-      result = null
     }
   }
 
@@ -347,9 +351,11 @@ def zwaveEvent(hubitat.zwave.commands.hailv1.Hail cmd) {
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
 
-  //The temperature sensor only measures the internal temperature of product (Circuit board)
+  // The temperature sensor only measures the internal temperature of product (Circuit board)
   if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
     createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
+  } else {
+    logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
 }
 
@@ -358,8 +364,6 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
 
   def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
   logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
-
-  // state.powerlevel = power
 }
 
 def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
@@ -370,6 +374,8 @@ def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
   state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
   state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
   state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
+
+  updateDataValue("firmware", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
@@ -403,37 +409,80 @@ def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
   state.deviceInfo['firmwareId'] = "${cmd.firmwareId}"
 }
 
-def zwaveEvent(hubitat.zwave.Command cmd) {
-  logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
-  [:]
-}
-
 def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
   logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
 
+  setSecured()
   def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
   if (encapsulatedCommand) {
-    logger("debug", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
-
+    logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand)
+
   } else {
     logger("warn", "zwaveEvent(SecurityMessageEncapsulation) - Unable to extract Secure command from: ${cmd.inspect()}")
   }
 }
 
-private secure(hubitat.zwave.Command cmd) {
-  logger("trace", "secure(Command) - cmd: ${cmd.inspect()}")
+def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
+  logger("trace", "zwaveEvent(Crc16Encap) - cmd: ${cmd.inspect()}")
 
-  if (state.sec) {
+  def encapsulatedCommand = zwave.getCommand(cmd.commandClass, cmd.command, cmd.data)
+  if (encapsulatedCommand) {
+    logger("trace", "zwaveEvent(Crc16Encap) - encapsulatedCommand: ${encapsulatedCommand}")
+    zwaveEvent(encapsulatedCommand)
+  } else {
+    logger("warn", "zwaveEvent(Crc16Encap) - Unable to extract CRC16 command from: ${cmd.inspect()}")
+  }
+}
+
+def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
+  logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
+
+  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  if (encapsulatedCommand) {
+    logger("trace", "zwaveEvent(MultiChannelCmdEncap) - encapsulatedCommand: ${encapsulatedCommand}")
+    zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
+  } else {
+    logger("warn", "zwaveEvent(MultiChannelCmdEncap) - Unable to extract MultiChannel command from: ${cmd.inspect()}")
+  }
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
+  logger("trace", "zwaveEvent(SecurityCommandsSupportedReport) - cmd: ${cmd.inspect()}")
+  setSecured()
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.NetworkKeyVerify cmd) {
+  logger("trace", "zwaveEvent(NetworkKeyVerify) - cmd: ${cmd.inspect()}")
+  logger("info", "Secure inclusion was successful")
+  setSecured()
+}
+
+def zwaveEvent(hubitat.zwave.Command cmd) {
+  logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
+  [:]
+}
+
+private secure(hubitat.zwave.Command cmd) {
+  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+
+  if (isSecured()) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
   } else {
     cmd.format()
   }
 }
 
-private secureSequence(Collection commands, ...delayBetweenArgs=250) {
-  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()}")
-  delayBetween(commands.collect{ secure(it) }, *delayBetweenArgs)
+private secureSequence(Collection commands, Integer delayBetweenArgs=250) {
+  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+}
+
+private setSecured() {
+  updateDataValue("secured", "true")
+}
+private isSecured() {
+  getDataValue("secured") == "true"
 }
 
 /**

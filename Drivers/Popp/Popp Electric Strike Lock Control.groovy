@@ -3,7 +3,7 @@
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
@@ -11,33 +11,15 @@
  *
  */
 
-/**
-  * zw:Ls type:4001 mfr:0154 prod:0005 model:0001 ver:1.05 zwv:4.38 lib:03 cc:5E,7A,73,5A,98,86,72 sec:30,71,70,59,85,62 role:05 ff:8300 ui:8300
-  * Secure Features:
-  *  30: Sensor Binary
-  *  71: Alarm
-  *  70: Configuration
-  *  59: Association Grp Info
-  *  85: Association
-  *  62: Door Lock
-  * Insecure Features:
-  *  5E:
-  *  7A: Firmware Update Md
-  *  73: Powerlevel
-  *  5A: Device Reset Locally
-  *  98: Security
-  *  86: Version
-  *  72: Manufacturer Specific
-  * Other:
-  *  Zwaveplus Info
-  *  Battery
-  */
-
 import hubitat.zwave.commands.doorlockv1.*
 import hubitat.zwave.commands.usercodev1.*
 
+import groovy.transform.Field
 
-public static String version() { return "v1.0.0" }
+@Field String VERSION = "1.0.0"
+
+@Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
+@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
   definition (name: "Popp Electric Strike Lock Control", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Popp/Popp Electric Strike Lock Control.groovy") {
@@ -46,169 +28,225 @@ metadata {
     capability "Sensor"
     capability "Battery"
     capability "Refresh"
+    capability "Polling"
+    capability "Configuration"
+    capability "Initialize"
+
+    command "clearState"
     command "unlocktimer"
+
     fingerprint mfr: "0154", prod: "0005", model: "0001"
+    fingerprint deviceId: "1", inClusters: "0x5E, 0x30, 0x71, 0x70, 0x85, 0x80, 0x7A, 0x5A, 0x59, 0x73, 0x98, 0x62, 0x86, 0x72"
   }
+
   preferences {
-    input name: "lockTimeout", type: "number", title: "Timeout", description: "Lock Timeout in Seconds", range: "1..59", defaultValue: 1, displayDuringSetup: true
-    input name: "debugOutput", type: "bool", title: "Enable debug logging", description: "", defaultValue: false
+    section { // General
+      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL
+      input type: " "
+      input type: " "
+    }
+    section { // Configuration
+      input name: "wakeUpInterval", title: "Device Wake Up Interval", description: "", type: "enum", options:[[1:"1h"], [2:"2h"], [3:"3h"], [4:"4h"], [8:"8h"], [24:"12h"], [24: "24h"], [48: "48h"]], defaultValue: 1, required: true
+      input name: "lockTimeout", title: "Timeout", description: "Lock Timeout in Seconds", type: "number", range: "1..59", defaultValue: 1, displayDuringSetup: true
+    }
   }
 }
 
+def installed() {
+  logger("debug", "installed(${VERSION})")
 
+  if (state.deviceInfo == null) {
+    state.deviceInfo = [:]
+  }
+  state.driverVer = VERSION
+
+  initialize()
+}
+
+def initialize() {
+  logger("debug", "initialize()")
+
+}
 
 def updated() {
-  if (debugOutput) log.debug "updated()"
+  logger("debug", "updated()")
 
   if (lockTimeout == null) lockTimeout = 0
-  if (debugOutput == null) debugOutput = false
 
-  // Set the configuration
+  if (!state.driverVer || state.driverVer != VERSION) {
+    installed()
+  }
+
+  unschedule()
   configure()
+}
 
-  // Device-Watch pings if no device events received for 1 hour (checkInterval)
-  sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+def poll() {
+  logger("debug", "poll()")
+
+  def cmds = []
+
+  // Only check lock state if it changed recently or we haven't had an update in an hour
+  def latest = device.currentState("lock")?.date?.time
+
+  if (!latest || !secondsPast(latest, 6 * 60) || secondsPast(state.lastPoll, 55 * 60)) {
+    logger("info", "poll() - Lock state")
+
+    cmds << response(secure(zwave.doorLockV1.doorLockOperationGet()))
+    state.lastPoll = now()
+
+  } else if (!state.lastbatt || now() - state.lastbatt > 8*60*60*1000) {
+    // Only check battery level if it has not been check in the past 8h
+    logger("info", "poll() - Checking Battery")
+
+    cmds << response(secure(zwave.batteryV1.batteryGet()))
+    state.lastbatt = now()
+  }
+
+  if (cmds) {
+    cmds
+  } else {
+    logger("info", "poll() - Skipping poll")
+
+    // workaround to keep polling from stopping due to lack of activity
+    sendEvent(descriptionText: "skipping poll", isStateChange: true, displayed: false)
+    null
+  }
+}
+
+def refresh() {
+  logger("debug", "refresh() - state: ${state.inspect()}")
+
+  secureSequence([
+    zwave.powerlevelV1.powerlevelGet(),
+    zwave.versionV1.versionGet(),
+    zwave.firmwareUpdateMdV2.firmwareMdGet(),
+    zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
+    zwave.batteryV1.batteryGet(),
+    zwave.basicV1.basicGet(),
+    zwave.switchBinaryV1.switchBinaryGet(),
+    zwave.doorLockV1.doorLockOperationGet()
+  ])
+}
+
+def clearState() {
+  logger("debug", "ClearStates() - Clearing device states")
+
+  state.clear()
+
+  if (state.deviceInfo == null) {
+    state.deviceInfo = [:]
+  } else {
+    state.deviceInfo.clear()
+  }
 }
 
 def configure() {
-  if (lockTimeout == null) lockTimeout = 0
-  if (debugOutput == null) debugOutput = false
+  logger("debug", "configure()")
 
   def cmds = []
-  cmds << zwave.doorLockV1.doorLockConfigurationSet(insideDoorHandlesState: 0, lockTimeoutMinutes: 0, lockTimeoutSeconds: lockTimeout.toInteger(), operationType: 2, outsideDoorHandlesState: 0).format()
+  def results = []
 
-  if (debugOutput) log.debug "configure() - cmds: ${cmds.inspect()}"
-  delayBetween(cmds, 4200)
+  schedule("0 0 0/12 * * ?", poll)
+
+  cmds = cmds + secureSequence([
+    zwave.wakeUpV1.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 3600, nodeid:zwaveHubNodeId),
+    zwave.doorLockV1.doorLockConfigurationSet(insideDoorHandlesState: 0, lockTimeoutMinutes: 0, lockTimeoutSeconds: lockTimeout.toInteger(), operationType: 2, outsideDoorHandlesState: 0)
+  ], 500)
+
+  results = results + response(cmds)
+  logger("debug", "configure() - results: ${results.inspect()}")
+
+  results
+}
+
+def lock() {
+  logger("debug", "lock()")
+
+  lockAndCheck(DoorLockOperationSet.DOOR_LOCK_MODE_DOOR_SECURED)
+}
+
+def unlock() {
+  logger("debug", "unlock()")
+  lockAndCheck(DoorLockOperationSet.DOOR_LOCK_MODE_DOOR_UNSECURED)
+}
+
+def unlocktimer() {
+  logger("debug", "unlocktimer()")
+  lockAndCheck(DoorLockOperationSet.DOOR_LOCK_MODE_DOOR_UNSECURED_WITH_TIMEOUT)
+}
+
+def lockAndCheck(doorLockMode) {
+  logger("debug", "lockAndCheck() - doorLockMode: ${doorLockMode}")
+  secureSequence([ zwave.doorLockV1.doorLockOperationSet(doorLockMode: doorLockMode), zwave.doorLockV1.doorLockOperationGet() ], 2000)
 }
 
 def parse(String description) {
-  if (debugOutput) log.debug "parse() - description: ${description.inspect()}"
-  def result = null
+  logger("debug", "parse() - description: ${description.inspect()}")
 
-  if (description.startsWith("Err")) {
-    if (state.sec) {
-      result = createEvent(descriptionText:description, displayed:false)
-    } else {
-      result = createEvent(
-        descriptionText: "This lock failed to complete the network security key exchange. If you are unable to control it via SmartThings, you must remove it from your network and add it again.",
-        eventType: "ALERT",
-        name: "secureInclusion",
-        value: "failed",
-        displayed: true,
-      )
-    }
-  } else if (description == "updated") {
-    return null
-  } else {
-    def cmd = zwave.parse(description, [ 0x98: 1, 0x72: 2, 0x85: 2, 0x86: 1 ])
+  def result = null
+  if (description != "updated") {
+    def cmd = zwave.parse(description, commandClassVersions)
     if (cmd) {
       result = zwaveEvent(cmd)
+      logger("debug", "parse() - description: ${description.inspect()} to cmd: ${cmd.inspect()} with result: ${result.inspect()}")
+
+    } else {
+      logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
+      result = null
     }
   }
-  if (debugOutput) log.debug "parse() - \"$description\" parsed to ${result.inspect()}"
+
   result
 }
 
-def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
-  def encapsulatedCommand = cmd.encapsulatedCommand([0x62: 1, 0x71: 2, 0x80: 1, 0x85: 2, 0x63: 1, 0x98: 1, 0x86: 1])
-  if (debugOutput) log.debug "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: $encapsulatedCommand"
-  if (encapsulatedCommand) {
-    zwaveEvent(encapsulatedCommand)
-  }
-}
-
 def zwaveEvent(DoorLockOperationReport cmd) {
-  if (debugOutput) log.debug "zwaveEvent(DoorLockOperationReport) - cmd: ${cmd.inspect()}"
+  logger("debug", "zwaveEvent(DoorLockOperationReport) - cmd: ${cmd.inspect()}")
 
   def result = []
-  unschedule("followupStateCheck")
-  unschedule("stateCheck")
+  Map map = [ name: "lock", isStateChange: true, displayed: true ]
 
-  def map = [ name: "lock" ]
-  if (cmd.doorLockMode == 0) {
-    if (debugOutput) log.debug "zwaveEvent(DoorLockOperationReport) - 0"
-    log.info "unlocked - Strike Open (Permanently)"
-
-    map.value = "unlocked"
-    map.isStateChange = true
-    map.displayed = true
-    map.descriptionText = "Strike Open (Permanently)"
-  } else if (cmd.doorLockMode == 1) {
-    if (debugOutput) log.debug "zwaveEvent(DoorLockOperationReport) - 1"
-    log.info "unlocked - Strike Open (Temporarily)"
-
-    map.value = "unlocked"
-    map.isStateChange = true
-    map.displayed = true
-    map.descriptionText = "Strike Open (Temporarily)"
-  } else if (cmd.doorLockMode == 255) {
-    if (debugOutput) log.debug "zwaveEvent(DoorLockOperationReport) - 255"
-    log.info "locked - Strike Closed (Permanently)"
-
+  if (cmd.doorLockMode == 0xFF) {
+    logger("info", "Locked")
     map.value = "locked"
-    map.isStateChange = true
-    map.displayed = true
     map.descriptionText = "Strike Closed (Permanently)"
-  } else {
-    if (debugOutput) log.debug "zwaveEvent(DoorLockOperationReport) - ${cmd.doorLockMode}"
-    log.warn "unknown - Strike Unknown (${cmd.doorLockMode})"
-
+  } else if (cmd.doorLockMode >= 0x40) {
+    logger("info", "Unknown")
     map.value = "unknown"
-    map.isStateChange = true
-    if (state.assoc != zwaveHubNodeId) {
-      if (debugOutput) log.debug "zwaveEvent(DoorLockOperationReport) - setting association"
-      result << response(secure(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId)))
-      result << response(zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId))
-      result << response(secure(zwave.associationV1.associationGet(groupingIdentifier:1)))
-    }
+    map.descriptionText = "Strike in Unknown state"
+  } else if (cmd.doorLockMode & 1) {
+    logger("info", "Unlocked with timeout")
+    map.value = "unlocked"
+    map.descriptionText = "Strike Open (Temporarily)"
+  } else {
+    logger("info", "Unlocked")
+    map.value = "unlocked"
+    map.descriptionText = "Strike Open (Permanently)"
   }
 
   result ? [createEvent(map), *result] : createEvent(map)
 }
 
 def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
-  if (debugOutput) log.debug "zwaveEvent(AssociationReport) - cmd: ${cmd.inspect()}"
-
-  def result = []
-  if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    state.remove("associationQuery")
-    if (debugOutput) log.debug "$device.displayName is associated to $zwaveHubNodeId"
-    result << createEvent(descriptionText: "$device.displayName is associated")
-    state.assoc = zwaveHubNodeId
-    if (cmd.groupingIdentifier == 2) {
-      result << response(zwave.associationV1.associationRemove(groupingIdentifier:1, nodeId:zwaveHubNodeId))
-    }
-
-  } else if (cmd.groupingIdentifier == 1) {
-    result << response(secure(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId)))
-
-  } else if (cmd.groupingIdentifier == 2) {
-    result << response(zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId))
-
-  }
-  result
+  logger("trace", "zwaveEvent(AssociationReport) - cmd: ${cmd.inspect()}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicSet cmd) {
-  if (debugOutput) log.debug "zwaveEvent(BasicSet) - cmd: ${cmd.inspect()}"
+  logger("trace", "zwaveEvent(BasicSet) - cmd: ${cmd.inspect()}")
 
-  def result = [ createEvent(name: "lock", value: cmd.value ? "unlocked" : "locked") ]
-  def cmds = [ zwave.associationV1.associationRemove(groupingIdentifier:1, nodeId:zwaveHubNodeId).format(), "delay 1200", zwave.associationV1.associationGet(groupingIdentifier:2).format() ]
-
-  [result, response(cmds)]
-  if (debugOutput) log.debug "zwaveEvent(BasicSet) - result: ${result.inspect()}"
+  createEvent(name: "lock", value: cmd.value ? "unlocked" : "locked")
 }
 
-// Battery powered devices can be configured to periodically wake up and
-// check in. They send this command and stay awake long enough to receive
-// commands, or until they get a WakeUpNoMoreInformation command that
-// instructs them that there are no more commands to receive and they can
-// stop listening.
+/*
+  Battery powered devices can be configured to periodically wake up and check in.
+  They send this command and stay awake long enough to receive commands, or until they get a WakeUpNoMoreInformation command
+  that instructs them that there are no more commands to receive and they can stop listening.
+*/
 def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
-  if (debugOutput) log.debug "zwaveEvent(WakeUpNotification) - cmd: ${cmd.inspect()}"
-  log.info "${device.displayName} woke up"
+  logger("trace", "zwaveEvent(WakeUpNotification) - cmd: ${cmd.inspect()}")
+  logger("info", "Device woke up")
 
-  def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
+  Map result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
 
   // Only ask for battery if we haven't had a BatteryReport in a while
   if (!state.lastbatt || (new Date().time) - state.lastbatt > 24*60*60*1000) {
@@ -219,142 +257,164 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   result
 }
 
-def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
-  if (debugOutput) log.debug "zwaveEvent(BatteryReport) - cmd: ${cmd.inspect()}"
+def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
+  logger("trace", "zwaveEvent(ConfigurationReport) - cmd: ${cmd.inspect()}")
+}
 
-  def map = [ name: "battery", unit: "%" ]
+def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
+  logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
+  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+}
+
+def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
+  logger("trace", "zwaveEvent(BatteryReport) - cmd: ${cmd.inspect()}")
+
+  Map map = [name: "battery", unit: "%"]
   if (cmd.batteryLevel == 0xFF) {
-    log.warn "$device.displayName has a low battery"
     map.value = 1
-    map.descriptionText = "$device.displayName has a low battery"
+    map.descriptionText = "${device.displayName} has a low battery"
+    map.isStateChange = true
+    logger("warn", map.descriptionText)
 
   } else {
-    log.info "$device.displayName battery is ${cmd.batteryLevel}%"
     map.value = cmd.batteryLevel
     map.descriptionText = "$device.displayName battery is ${cmd.batteryLevel}%"
+    logger("info", map.descriptionText)
 
   }
+
   state.lastbatt = now()
   createEvent(map)
 }
 
-def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
-  if (debugOutput) log.debug "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}"
+def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
+  logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
 
-  def result = []
-  def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
-
-  updateDataValue("MSR", msr)
-
-  result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
-
-  if (debugOutput) log.debug "zwaveEvent(ManufacturerSpecificReport) - result: ${result.inspect()}"
-  result
+  def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
-  if (debugOutput) log.debug "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}"
+  logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
 
-  def fw = "${cmd.applicationVersion}.${cmd.applicationSubVersion}"
-  updateDataValue("firmware", fw)
-  if (state.MSR == "003B-6341-5044") {
-    updateDataValue("ver", "${cmd.applicationVersion >> 4}.${cmd.applicationVersion & 0xF}")
+  state.deviceInfo['applicationVersion'] = "${cmd.applicationVersion}"
+  state.deviceInfo['applicationSubVersion'] = "${cmd.applicationSubVersion}"
+  state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
+  state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
+  state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
+
+  updateDataValue("firmware", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
+  logger("trace", "zwaveEvent(DeviceSpecificReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['deviceIdData'] = "${cmd.deviceIdData}"
+  state.deviceInfo['deviceIdDataFormat'] = "${cmd.deviceIdDataFormat}"
+  state.deviceInfo['deviceIdDataLengthIndicator'] = "l${cmd.deviceIdDataLengthIndicator}"
+  state.deviceInfo['deviceIdType'] = "${cmd.deviceIdType}"
+}
+
+def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
+  logger("trace", "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['manufacturerId'] = "${cmd.manufacturerId}"
+  state.deviceInfo['manufacturerName'] = "${cmd.manufacturerName}"
+  state.deviceInfo['productId'] = "${cmd.productId}"
+  state.deviceInfo['productTypeId'] = "${cmd.productTypeId}"
+
+  String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  updateDataValue("MSR", msr)
+  updateDataValue("manufacturer", cmd.manufacturerName)
+
+  createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
+}
+
+def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
+  logger("trace", "zwaveEvent(FirmwareMdReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['firmwareChecksum'] = "${cmd.checksum}"
+  state.deviceInfo['firmwareId'] = "${cmd.firmwareId}"
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
+  logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
+
+  setSecured()
+  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  if (encapsulatedCommand) {
+    logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
+    zwaveEvent(encapsulatedCommand)
+
+  } else {
+    logger("warn", "zwaveEvent(SecurityMessageEncapsulation) - Unable to extract Secure command from: ${cmd.inspect()}")
   }
-  def text = "$device.displayName: firmware version: $fw, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
-  createEvent(descriptionText: text, isStateChange: false)
+}
+
+def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
+  logger("trace", "zwaveEvent(Crc16Encap) - cmd: ${cmd.inspect()}")
+
+  def encapsulatedCommand = zwave.getCommand(cmd.commandClass, cmd.command, cmd.data)
+  if (encapsulatedCommand) {
+    logger("trace", "zwaveEvent(Crc16Encap) - encapsulatedCommand: ${encapsulatedCommand}")
+    zwaveEvent(encapsulatedCommand)
+  } else {
+    logger("warn", "zwaveEvent(Crc16Encap) - Unable to extract CRC16 command from: ${cmd.inspect()}")
+  }
+}
+
+def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
+  logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
+
+  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  if (encapsulatedCommand) {
+    logger("trace", "zwaveEvent(MultiChannelCmdEncap) - encapsulatedCommand: ${encapsulatedCommand}")
+    zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
+  } else {
+    logger("warn", "zwaveEvent(MultiChannelCmdEncap) - Unable to extract MultiChannel command from: ${cmd.inspect()}")
+  }
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.SecuritySchemeReport cmd) {
+  logger("trace", "zwaveEvent(SecuritySchemeReport) - cmd: ${cmd.inspect()}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
+  logger("trace", "zwaveEvent(SecurityCommandsSupportedReport) - cmd: ${cmd.inspect()}")
+  setSecured()
+}
+
+def zwaveEvent(hubitat.zwave.commands.securityv1.NetworkKeyVerify cmd) {
+  logger("trace", "zwaveEvent(NetworkKeyVerify) - cmd: ${cmd.inspect()}")
+  logger("info", "Secure inclusion was successful")
+  setSecured()
 }
 
 def zwaveEvent(hubitat.zwave.Command cmd) {
-  if (debugOutput) log.debug "zwaveEvent(Command) - cmd: ${cmd.inspect()}"
-
-  createEvent(displayed: false, descriptionText: "$device.displayName: $cmd")
-}
-
-def lock() {
-  if (debugOutput) log.debug "lock()"
-  lockAndCheck(DoorLockOperationSet.DOOR_LOCK_MODE_DOOR_SECURED)
-}
-
-def unlock() {
-  if (debugOutput) log.debug "unlock()"
-  lockAndCheck(DoorLockOperationSet.DOOR_LOCK_MODE_DOOR_UNSECURED)
-}
-
-def unlocktimer() {
-  if (debugOutput) log.debug "unlocktimer()"
-  lockAndCheck(DoorLockOperationSet.DOOR_LOCK_MODE_DOOR_UNSECURED_WITH_TIMEOUT)
-}
-
-def lockAndCheck(doorLockMode) {
-  if (debugOutput) log.debug "lockAndCheck() - doorLockMode: ${doorLockMode}"
-  secureSequence([ zwave.doorLockV1.doorLockOperationSet(doorLockMode: doorLockMode), zwave.doorLockV1.doorLockOperationGet() ], 4200)
-}
-
-def stateCheck() {
-  if (debugOutput) log.debug "stateCheck()"
-  sendHubCommand(new hubitat.device.HubAction(secure(zwave.doorLockV1.doorLockOperationGet())))
-}
-
-
-def refresh() {
-  def cmds = [secure(zwave.doorLockV1.doorLockOperationGet()), secure(zwave.versionV1.versionGet())]
-  if (debugOutput) log.debug "refresh() - cmds: ${cmds.inspect()}"
-
-  if (state.assoc == zwaveHubNodeId) {
-    if (debugOutput) log.debug "refresh() - $device.displayName is associated to ${state.assoc}"
-  } else if (!state.associationQuery) {
-    if (debugOutput) log.debug "refresh() - checking association"
-    cmds << "delay 4200"
-    cmds << zwave.associationV1.associationGet(groupingIdentifier:2).format() // old Schlage locks use group 2 and don't secure the Association CC
-    cmds << secure(zwave.associationV1.associationGet(groupingIdentifier:1))
-    state.associationQuery = now()
-  } else if (secondsPast(state.associationQuery, 9)) {
-    cmds << "delay 6000"
-    cmds << zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId).format()
-    cmds << secure(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId))
-    cmds << zwave.associationV1.associationGet(groupingIdentifier:2).format()
-    cmds << secure(zwave.associationV1.associationGet(groupingIdentifier:1))
-    state.associationQuery = now()
-  }
-  cmds << zwave.batteryV1.batteryGet().format()
-  cmds << secure(zwave.doorLockV1.doorLockConfigurationSet(insideDoorHandlesState: 0, lockTimeoutMinutes: 0, lockTimeoutSeconds: lockTimeout.toInteger(), operationType: 2, outsideDoorHandlesState: 0))
-  if (debugOutput) log.debug "refresh() - sending cmds: ${cmds.inspect()}"
-  cmds
-}
-
-def poll() {
-  if (debugOutput) log.debug "poll()"
-
-  def cmds = []
-  // Only check lock state if it changed recently or we haven't had an update in an hour
-  def latest = device.currentState("lock")?.date?.time
-
-  if (!latest || !secondsPast(latest, 6 * 60) || secondsPast(state.lastPoll, 55 * 60)) {
-    cmds << secure(zwave.doorLockV1.doorLockOperationGet())
-    state.lastPoll = now()
-  } else if (!state.lastbatt || now() - state.lastbatt > 53*60*60*1000) {
-    cmds << secure(zwave.batteryV1.batteryGet())
-    state.lastbatt = now() //inside-214
-  }
-  if (cmds) {
-    if (debugOutput) log.debug "poll() - cmds: ${cmds.inspect()}"
-    cmds
-  } else {
-    // workaround to keep polling from stopping due to lack of activity
-    sendEvent(descriptionText: "skipping poll", isStateChange: true, displayed: false)
-    null
-  }
+  logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
+  [:]
 }
 
 private secure(hubitat.zwave.Command cmd) {
-  if (debugOutput) log.debug "secure(Command) - cmd: ${cmd.inspect()}"
-  zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+
+  if (isSecured()) {
+    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+  } else {
+    cmd.format()
+  }
 }
 
+private secureSequence(Collection commands, Integer delayBetweenArgs=4200) {
+  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+}
 
-private secureSequence(Collection commands, ...delayBetweenArgs=4200) {
-  if (debugOutput) log.debug "secureSequence(Command) - commands: ${commands.inspect()}"
-  delayBetween(commands.collect{ secure(it) }, *delayBetweenArgs)
+private setSecured() {
+  updateDataValue("secured", "true")
+}
+private isSecured() {
+  getDataValue("secured") == "true"
 }
 
 private Boolean secondsPast(timestamp, seconds) {
@@ -368,4 +428,20 @@ private Boolean secondsPast(timestamp, seconds) {
     }
   }
   return (new Date().time - timestamp) > (seconds * 1000)
+}
+/**
+ * @param level Level to log at, see LOG_LEVELS for options
+ * @param msg Message to log
+ */
+private logger(level, msg) {
+  if (level && msg) {
+    Integer levelIdx = LOG_LEVELS.indexOf(level)
+    Integer setLevelIdx = LOG_LEVELS.indexOf(logLevel)
+    if (setLevelIdx < 0) {
+      setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
+    }
+    if (levelIdx <= setLevelIdx) {
+      log."${level}" "${msg}"
+    }
+  }
 }
