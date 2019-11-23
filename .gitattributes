@@ -10,6 +10,7 @@
 *.sh       text eol=lf
 *.pl       text eol=lf
 *.py       text eol=lf
+*.groovy   text eol=lf
 
 *.gz       binary
 *.tar      binary

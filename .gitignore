@@ -1,4 +1,6 @@
-**/temp/
-**.vscode/
+logs/
+temp/
+data/
+.vscode/
 *~
 *.swp
