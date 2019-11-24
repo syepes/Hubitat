@@ -92,14 +92,14 @@ def poll() {
   if (!latest || !secondsPast(latest, 6 * 60) || secondsPast(state.lastPoll, 55 * 60)) {
     logger("info", "poll() - Lock state")
 
-    cmds << response(secure(zwave.doorLockV1.doorLockOperationGet()))
+    cmds << response(cmd(zwave.doorLockV1.doorLockOperationGet()))
     state.lastPoll = now()
 
   } else if (!state.lastbatt || now() - state.lastbatt > 8*60*60*1000) {
     // Only check battery level if it has not been check in the past 8h
     logger("info", "poll() - Checking Battery")
 
-    cmds << response(secure(zwave.batteryV1.batteryGet()))
+    cmds << response(cmd(zwave.batteryV1.batteryGet()))
     state.lastbatt = now()
   }
 
@@ -117,7 +117,7 @@ def poll() {
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
 
-  secureSequence([
+  cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
     zwave.versionV1.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
@@ -149,7 +149,7 @@ def configure() {
 
   schedule("0 0 0/12 * * ?", poll)
 
-  cmds = cmds + secureSequence([
+  cmds = cmds + cmdSequence([
     zwave.wakeUpV1.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 3600, nodeid:zwaveHubNodeId),
     zwave.doorLockV1.doorLockConfigurationSet(insideDoorHandlesState: 0, lockTimeoutMinutes: 0, lockTimeoutSeconds: lockTimeout.toInteger(), operationType: 2, outsideDoorHandlesState: 0)
   ], 500)
@@ -178,7 +178,7 @@ def unlocktimer() {
 
 def lockAndCheck(doorLockMode) {
   logger("debug", "lockAndCheck() - doorLockMode: ${doorLockMode}")
-  secureSequence([ zwave.doorLockV1.doorLockOperationSet(doorLockMode: doorLockMode), zwave.doorLockV1.doorLockOperationGet() ], 2000)
+  cmdSequence([ zwave.doorLockV1.doorLockOperationSet(doorLockMode: doorLockMode), zwave.doorLockV1.doorLockOperationGet() ], 2000)
 }
 
 def parse(String description) {
@@ -395,8 +395,8 @@ def zwaveEvent(hubitat.zwave.Command cmd) {
   [:]
 }
 
-private secure(hubitat.zwave.Command cmd) {
-  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+private cmd(hubitat.zwave.Command cmd) {
+  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
 
   if (isSecured()) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -405,9 +405,9 @@ private secure(hubitat.zwave.Command cmd) {
   }
 }
 
-private secureSequence(Collection commands, Integer delayBetweenArgs=4200) {
-  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
-  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+private cmdSequence(Collection commands, Integer delayBetweenArgs=4200) {
+  logger("trace", "cmdSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ cmd(it) }, delayBetweenArgs)
 }
 
 private setSecured() {

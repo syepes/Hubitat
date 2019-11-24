@@ -101,7 +101,7 @@ def updated() {
 def poll() {
   logger("debug", "poll()")
 
-  secureSequence([
+  cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
     zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0),
     zwave.basicV1.basicGet(),
@@ -117,13 +117,13 @@ def poll() {
 def pollTemp() {
   logger("debug", "pollTemp()")
   // The temperature sensor only measures the internal temperature of product (Circuit board)
-  secure(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0))
+  cmd(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0))
 }
 
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
 
-  secureSequence([
+  cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
     zwave.versionV1.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
@@ -142,7 +142,7 @@ def refresh() {
 def on() {
   logger("debug", "on()")
 
-  secureSequence([
+  cmdSequence([
     zwave.basicV1.basicSet(value: 0xFF),
     zwave.switchBinaryV1.switchBinaryGet(),
     zwave.meterV3.meterGet(scale: 2)
@@ -152,7 +152,7 @@ def on() {
 def off() {
   logger("debug", "off()")
 
-  secureSequence([
+  cmdSequence([
     zwave.basicV1.basicSet(value: 0x00),
     zwave.switchBinaryV1.switchBinaryGet(),
     zwave.meterV3.meterGet(scale: 2)
@@ -184,7 +184,7 @@ def configure() {
   reportGroup += ("$param101_watts" == "true" ? 4 : 0)
   reportGroup += ("$param101_currentUsage" == "true" ? 8 : 0)
 
-  cmds = cmds + secureSequence([
+  cmds = cmds + cmdSequence([
     zwave.switchAllV1.switchAllSet(mode: switchAllMode),
     zwave.configurationV1.configurationSet(parameterNumber: 20, size: 1, scaledConfigurationValue: param20.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: param111.toInteger()),
@@ -209,7 +209,7 @@ def reset() {
   sendEvent(name: "current", value: "0", displayed: true, unit: "A")
   sendEvent(name: "voltage", value: "0", displayed: true, unit: "V")
 
-  secureSequence([
+  cmdSequence([
     zwave.meterV3.meterReset(),
     zwave.meterV3.meterGet(scale: 0),
     zwave.meterV3.meterGet(scale: 1),
@@ -463,8 +463,8 @@ def zwaveEvent(hubitat.zwave.Command cmd) {
   [:]
 }
 
-private secure(hubitat.zwave.Command cmd) {
-  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+private cmd(hubitat.zwave.Command cmd) {
+  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
 
   if (isSecured()) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -473,9 +473,9 @@ private secure(hubitat.zwave.Command cmd) {
   }
 }
 
-private secureSequence(Collection commands, Integer delayBetweenArgs=250) {
-  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
-  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+private cmdSequence(Collection commands, Integer delayBetweenArgs=250) {
+  logger("trace", "cmdSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ cmd(it) }, delayBetweenArgs)
 }
 
 private setSecured() {

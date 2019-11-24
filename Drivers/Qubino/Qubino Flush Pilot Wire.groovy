@@ -90,7 +90,7 @@ def updated() {
 def poll() {
   logger("debug", "poll()")
 
-  secureSequence([
+  cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
     zwave.basicV1.basicGet(),
     zwave.switchBinaryV1.switchBinaryGet(),
@@ -102,7 +102,7 @@ def poll() {
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
 
-  secureSequence([
+  cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
     zwave.versionV1.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
@@ -117,7 +117,7 @@ def refresh() {
 def on() {
   logger("debug", "on()")
 
-  secureSequence([
+  cmdSequence([
     zwave.basicV1.basicSet(value: 0xFF),
     zwave.switchBinaryV1.switchBinaryGet(),
     zwave.switchMultilevelV1.switchMultilevelGet()
@@ -127,7 +127,7 @@ def on() {
 def off() {
   logger("debug", "off()")
 
-  secureSequence([
+  cmdSequence([
     zwave.basicV1.basicSet(value: 0x00),
     zwave.switchBinaryV1.switchBinaryGet(),
     zwave.switchMultilevelV1.switchMultilevelGet()
@@ -140,7 +140,7 @@ def configure() {
   def cmds = []
   def results = []
 
-  cmds = cmds + secureSequence([
+  cmds = cmds + cmdSequence([
     zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: param4.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 11, size: 1, scaledConfigurationValue: param11.toInteger()),
@@ -175,7 +175,7 @@ def setLevel(value) {
 
   Integer valueaux = value as Integer
   Integer level = Math.max(Math.min(valueaux, 99), 0)
-  secureSequence([
+  cmdSequence([
     zwave.basicV1.basicSet(value: level),
     zwave.switchMultilevelV1.switchMultilevelGet()
   ])
@@ -187,7 +187,7 @@ def setLevel(value, duration) {
   Integer valueaux = value as Integer
   Integer level = Math.max(Math.min(valueaux, 99), 0)
   Integer dimmingDuration = duration < 128 ? duration : 128 + Math.round(duration / 60)
-  secure(zwave.switchMultilevelV2.switchMultilevelSet(value: level, dimmingDuration: dimmingDuration))
+  cmd(zwave.switchMultilevelV2.switchMultilevelSet(value: level, dimmingDuration: dimmingDuration))
 }
 
 def pilotMode(mode="Stop") {
@@ -387,8 +387,8 @@ private setLevelEvent(hubitat.zwave.Command cmd) {
   return result
 }
 
-private secure(hubitat.zwave.Command cmd) {
-  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+private cmd(hubitat.zwave.Command cmd) {
+  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
 
   if (isSecured()) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -397,9 +397,9 @@ private secure(hubitat.zwave.Command cmd) {
   }
 }
 
-private secureSequence(Collection commands, Integer delayBetweenArgs=4200) {
-  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
-  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+private cmdSequence(Collection commands, Integer delayBetweenArgs=4200) {
+  logger("trace", "cmdSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ cmd(it) }, delayBetweenArgs)
 }
 
 private setSecured() {

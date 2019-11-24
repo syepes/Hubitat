@@ -197,7 +197,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   def cmds = []
   def results = [createEvent(descriptionText: "$device.displayName woke up", isStateChange: true)]
 
-  cmds = cmds + secureSequence([
+  cmds = cmds + cmdSequence([
     zwave.batteryV1.batteryGet(),
     zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0)
   ], 1000)
@@ -206,7 +206,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   if (!state?.deviceConfigSynced) {
     logger("info", "Synchronizing device config")
 
-    cmds = cmds + secureSequence([
+    cmds = cmds + cmdSequence([
         zwave.wakeUpV1.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 3600, nodeid:zwaveHubNodeId),
         zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
         zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: param2.toInteger()),
@@ -229,7 +229,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   if (!getDataValue("MSR") ) {
     logger("info", "Refresing device info")
 
-    cmds = cmds + secureSequence([
+    cmds = cmds + cmdSequence([
       zwave.powerlevelV1.powerlevelGet(),
       zwave.versionV1.versionGet(),
       zwave.firmwareUpdateMdV2.firmwareMdGet(),
@@ -238,7 +238,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   }
 
   cmds << "delay " + (5000 + 15 * 1500)
-  cmds << secure(zwave.wakeUpV1.wakeUpNoMoreInformation())
+  cmds << cmd(zwave.wakeUpV1.wakeUpNoMoreInformation())
 
   results = results + response(cmds)
   logger("debug", "zwaveEvent(WakeUpNotification) - results: ${results.inspect()}")
@@ -493,8 +493,8 @@ def zwaveEvent(hubitat.zwave.Command cmd) {
   [:]
 }
 
-private secure(hubitat.zwave.Command cmd) {
-  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+private cmd(hubitat.zwave.Command cmd) {
+  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
 
   if (isSecured()) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -503,9 +503,9 @@ private secure(hubitat.zwave.Command cmd) {
   }
 }
 
-private secureSequence(Collection commands, Integer delayBetweenArgs=4200) {
-  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
-  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+private cmdSequence(Collection commands, Integer delayBetweenArgs=4200) {
+  logger("trace", "cmdSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ cmd(it) }, delayBetweenArgs)
 }
 
 private setSecured() {

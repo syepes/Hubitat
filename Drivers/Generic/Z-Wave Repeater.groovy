@@ -81,7 +81,7 @@ def updated() {
 def poll() {
   logger("debug", "poll()")
 
-  secureSequence([
+  cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
     zwave.versionV1.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
@@ -92,7 +92,7 @@ def poll() {
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
 
-  secureSequence([
+  cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
     zwave.versionV1.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
@@ -126,7 +126,7 @@ def devicePoll() {
 
   state.devicePings = state.devicePings + 1
 
-  secure(zwave.powerlevelV1.powerlevelGet())
+  cmd(zwave.powerlevelV1.powerlevelGet())
 }
 
 def deviceUpdate() {
@@ -153,7 +153,7 @@ def configure() {
   schedule("0 0/5 * * * ?", devicePoll)
 
   // Associate Group 1 (Lifeline) with the Hub.
-  secure(zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: zwaveHubNodeId))
+  cmd(zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: zwaveHubNodeId))
 }
 
 def parse(String description) {
@@ -263,7 +263,7 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
   logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
 
   def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
-  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
+  logger("debug", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
   deviceUpdate()
 }
 
@@ -364,8 +364,8 @@ def zwaveEvent(hubitat.zwave.Command cmd) {
   [:]
 }
 
-private secure(hubitat.zwave.Command cmd) {
-  logger("trace", "secure(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+private cmd(hubitat.zwave.Command cmd) {
+  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
 
   if (isSecured()) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -374,9 +374,9 @@ private secure(hubitat.zwave.Command cmd) {
   }
 }
 
-private secureSequence(Collection commands, Integer delayBetweenArgs=250) {
-  logger("trace", "secureSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
-  delayBetween(commands.collect{ secure(it) }, delayBetweenArgs)
+private cmdSequence(Collection commands, Integer delayBetweenArgs=250) {
+  logger("trace", "cmdSequence(Command) - commands: ${commands.inspect()} delayBetweenArgs: ${delayBetweenArgs}")
+  delayBetween(commands.collect{ cmd(it) }, delayBetweenArgs)
 }
 
 private setSecured() {
