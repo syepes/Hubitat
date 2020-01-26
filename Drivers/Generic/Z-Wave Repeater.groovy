@@ -1,4 +1,5 @@
 /**
+ *  Copyright (C) Sebastian YEPES
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -19,7 +20,7 @@ import groovy.transform.Field
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Z-Wave Range Extender", namespace: "syepes", author: "Sebastian YEPES") {
+  definition (name: "Z-Wave Range Extender", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Generic/Z-Wave%20Repeater.groovy") {
     capability "Polling"
     capability "Refresh"
     capability "Configuration"
@@ -38,12 +39,11 @@ metadata {
     fingerprint mfr: "0371", prod: "0104", model: "00BD", deviceJoinName: "Aeotec Range Extender 7" //US
     fingerprint mfr: "0371", prod: "0004", model: "00BD", deviceJoinName: "Aeotec Range Extender 7" //EU
     fingerprint deviceId: "117", inClusters: "0x5E, 0x26, 0x33, 0x70, 0x85, 0x59, 0x72, 0x86, 0x7A, 0x73, 0x5A"
-
   }
 
   preferences {
     section { // General
-      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL
+      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
     }
   }
 }
@@ -51,10 +51,13 @@ metadata {
 def installed() {
   logger("debug", "installed(${VERSION})")
 
+  if (state.driverInfo == null || state.driverInfo.isEmpty()) {
+    state.driverInfo = [ver:VERSION, status:'Current version']
+  }
+
   if (state.deviceInfo == null) {
     state.deviceInfo = [:]
   }
-  state.driverVer = VERSION
 
   initialize()
 }
@@ -66,7 +69,7 @@ def initialize() {
 def updated() {
   logger("debug", "updated()")
 
-  if (!state.driverVer || state.driverVer != VERSION) {
+  if (!state.driverInfo?.ver || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
     installed()
   }
 
@@ -107,7 +110,13 @@ def clearState() {
 
   state.clear()
 
-  if (state.deviceInfo == null) {
+  if (state?.driverInfo == null) {
+    state.driverInfo = [:]
+  } else {
+    state.driverInfo.clear()
+  }
+
+  if (state?.deviceInfo == null) {
     state.deviceInfo = [:]
   } else {
     state.deviceInfo.clear()
@@ -150,6 +159,7 @@ def configure() {
   state.devicePings = 0
   state.deviceCommTests = 0
 
+  schedule("0 0 12 */7 * ?", updateCheck)
   schedule("0 0/5 * * * ?", devicePoll)
 
   // Associate Group 1 (Lifeline) with the Hub.
@@ -161,7 +171,7 @@ def parse(String description) {
 
   def result = []
   if (description != "updated") {
-    def cmd = zwave.parse(description, commandClassVersions)
+    def cmd = zwave.parse(description, getCommandClassVersions())
     if (cmd) {
       result = zwaveEvent(cmd)
       logger("debug", "parse() - description: ${description.inspect()} to cmd: ${cmd.inspect()} with result: ${result.inspect()}")
@@ -211,14 +221,6 @@ def commTestResults() {
   }
 }
 
-/*
-  POWER LEVEL TEST REPORT RESPONSE
-
-  Status Codes:
-  STATUS_OF_OPERATION_ZW_TEST_FAILED	= 0
-  STATUS_OF_OPERATION_ZW_TEST_SUCCES	= 1
-  STATUS_OF_OPERATION_ZW_TEST_INPROGRESS	= 2
-*/
 def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd) {
   logger("trace", "zwaveEvent(PowerlevelTestNodeReport) - cmd: ${cmd.inspect()}")
 
@@ -314,7 +316,7 @@ def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cm
   logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
 
   setSecured()
-  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
     logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand)
@@ -339,7 +341,7 @@ def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
 def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
   logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
 
-  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
     logger("trace", "zwaveEvent(MultiChannelCmdEncap) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
@@ -386,6 +388,21 @@ private isSecured() {
   getDataValue("secured") == "true"
 }
 
+private getCommandClassVersions() {
+  return [0x5E: 1, // COMMAND_CLASS_ZWAVEPLUS_INFO (Insecure)
+          0x26: 3, // COMMAND_CLASS_SWITCH_MULTILEVEL_V2
+          0x33: 1, // COMMAND_CLASS_ZIP_ADV_SERVER
+          0x70: 2, // COMMAND_CLASS_CONFIGURATION_V2 (Secure)
+          0x85: 2, // COMMAND_CLASS_ASSOCIATION (Secure)
+          0x59: 1, // COMMAND_CLASS_ASSOCIATION_GRP_INFO (Secure)
+          0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
+          0x86: 1, // COMMAND_CLASS_VERSION (Insecure)
+          0x7A: 2, // COMMAND_CLASS_FIRMWARE_UPDATE_MD (Insecure)
+          0x73: 1, // COMMAND_CLASS_POWERLEVEL (Insecure)
+          0x5A: 1  // COMMAND_CLASS_DEVICE_RESET_LOCALLY (Insecure)
+  ]
+}
+
 /**
  * @param level Level to log at, see LOG_LEVELS for options
  * @param msg Message to log
@@ -400,5 +417,30 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${msg}"
     }
+  }
+}
+
+def updateCheck() {
+  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Generic/Z-Wave%20Repeater.groovy"]
+  asynchttpGet("updateCheckHandler", params)
+}
+
+private updateCheckHandler(resp, data) {
+  if (resp?.getStatus() == 200) {
+    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
+    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
+
+    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
+
+    if (ver_online > ver_cur) {
+      logger("info", "New version(${ver_online})")
+      state.driverInfo.status = "New version (${ver_online})"
+    } else if (ver_online == ver_cur) {
+      logger("info", "Current version")
+      state.driverInfo.status = 'Current version'
+    }
+
+  } else {
+    logger("error", "updateCheck() - Unable to download source file")
   }
 }

@@ -1,4 +1,5 @@
 /**
+ *  Copyright (C) Sebastian YEPES
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -19,7 +20,7 @@ import groovy.transform.Field
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Aeotec Heavy Duty Smart Switch", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Heavy%20Duty%20Smart%20Switch.groovy") {
+  definition (name: "Aeotec Heavy Duty Smart Switch", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Heavy%20Duty%20Smart%20Switch.groovy") {
     capability "Actuator"
     capability "Switch"
     capability "Sensor"
@@ -45,10 +46,12 @@ metadata {
 
   preferences {
     section { // General
-      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL
+      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
+      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
+      input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
     }
     section { // Configuration
-      input name: "switchAll", title: "Respond to switch all", description: "How does the switch respond to the 'Switch All' command", type: "enum", options:["Disabled", "Off Enabled", "On Enabled", "On And Off Enabled"], defaultValue: "On And Off Enabled", required:false
+      input name: "switchAll", title: "Respond to switch all", description: "How does the switch respond to the 'Switch All' command", type: "enum", options:["Disabled", "Off Enabled", "On Enabled", "On And Off Enabled"], defaultValue: "On And Off Enabled", required: true
       input name: "report_temp", title: "Report Temperature", description: "", type: "bool", defaultValue: false, required: true
 
       input name: "param20", title: "Default Load state (20)", description: "Used for indicating the default state of output load after re-power on", type: "enum", options:[[0:"Last state after power on"],[1:"Always on after re-power on"],[2:"Always off stare after re-power on"]], defaultValue: 0, required: true
@@ -71,10 +74,13 @@ metadata {
 def installed() {
   logger("debug", "installed(${VERSION})")
 
+  if (state.driverInfo == null || state.driverInfo.isEmpty()) {
+    state.driverInfo = [ver:VERSION, status:'Current version']
+  }
+
   if (state.deviceInfo == null) {
     state.deviceInfo = [:]
   }
-  state.driverVer = VERSION
 
   initialize()
 }
@@ -86,7 +92,7 @@ def initialize() {
 def updated() {
   logger("debug", "updated()")
 
-  if (!state.driverVer || state.driverVer != VERSION) {
+  if (!state.driverInfo?.ver || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
     installed()
   }
 
@@ -105,12 +111,11 @@ def poll() {
     zwave.powerlevelV1.powerlevelGet(),
     zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0),
     zwave.basicV1.basicGet(),
-    zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.meterV3.meterGet(scale: 0), // energy kWh
-    zwave.meterV3.meterGet(scale: 1), // energy kVAh
-    zwave.meterV3.meterGet(scale: 2), // watts
-    zwave.meterV3.meterGet(scale: 4), // volts
-    zwave.meterV3.meterGet(scale: 5)  // amps
+    zwave.meterV4.meterGet(scale: 0), // energy kWh
+    zwave.meterV4.meterGet(scale: 1), // energy kVAh
+    zwave.meterV4.meterGet(scale: 2), // watts
+    zwave.meterV4.meterGet(scale: 4), // volts
+    zwave.meterV4.meterGet(scale: 5)  // amps
   ])
 }
 
@@ -130,33 +135,24 @@ def refresh() {
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
     zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0),
     zwave.basicV1.basicGet(),
-    zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.meterV3.meterGet(scale: 0), // energy kWh
-    zwave.meterV3.meterGet(scale: 1), // energy kVAh
-    zwave.meterV3.meterGet(scale: 2), // watts
-    zwave.meterV3.meterGet(scale: 4), // volts
-    zwave.meterV3.meterGet(scale: 5)  // amps
+    zwave.meterV4.meterGet(scale: 0), // energy kWh
+    zwave.meterV4.meterGet(scale: 1), // energy kVAh
+    zwave.meterV4.meterGet(scale: 2), // watts
+    zwave.meterV4.meterGet(scale: 4), // volts
+    zwave.meterV4.meterGet(scale: 5)  // amps
   ])
 }
 
 def on() {
   logger("debug", "on()")
 
-  cmdSequence([
-    zwave.basicV1.basicSet(value: 0xFF),
-    zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.meterV3.meterGet(scale: 2)
-  ], 3000)
+  cmd(zwave.basicV1.basicSet(value: 0xFF))
 }
 
 def off() {
   logger("debug", "off()")
 
-  cmdSequence([
-    zwave.basicV1.basicSet(value: 0x00),
-    zwave.switchBinaryV1.switchBinaryGet(),
-    zwave.meterV3.meterGet(scale: 2)
-  ], 3000)
+  cmd(zwave.basicV1.basicSet(value: 0x00))
 }
 
 def configure() {
@@ -164,6 +160,16 @@ def configure() {
 
   def cmds = []
   def results = []
+
+  schedule("0 0 12 */7 * ?", updateCheck)
+
+  if (stateCheckInterval) {
+    if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
+      schedule("0 */${stateCheckInterval} * ? * *", checkState)
+    } else {
+      schedule("0 0 */${stateCheckInterval} ? * *", checkState)
+    }
+  }
 
   if (report_temp) {
     schedule("0 */5 * ? * *", pollTemp)
@@ -210,12 +216,12 @@ def reset() {
   sendEvent(name: "voltage", value: "0", displayed: true, unit: "V")
 
   cmdSequence([
-    zwave.meterV3.meterReset(),
-    zwave.meterV3.meterGet(scale: 0),
-    zwave.meterV3.meterGet(scale: 1),
-    zwave.meterV3.meterGet(scale: 2),
-    zwave.meterV3.meterGet(scale: 4),
-    zwave.meterV3.meterGet(scale: 5)
+    zwave.meterV4.meterReset(),
+    zwave.meterV4.meterGet(scale: 0),
+    zwave.meterV4.meterGet(scale: 1),
+    zwave.meterV4.meterGet(scale: 2),
+    zwave.meterV4.meterGet(scale: 4),
+    zwave.meterV4.meterGet(scale: 5)
   ])
 }
 
@@ -224,26 +230,39 @@ def clearState() {
 
   state.clear()
 
-  if (state.deviceInfo == null) {
+  if (state?.driverInfo == null) {
+    state.driverInfo = [:]
+  } else {
+    state.driverInfo.clear()
+  }
+
+  if (state?.deviceInfo == null) {
     state.deviceInfo = [:]
   } else {
     state.deviceInfo.clear()
   }
 }
 
+def checkState() {
+  logger("debug", "checkState()")
+
+  cmdSequence([
+    zwave.powerlevelV1.powerlevelGet(),
+    zwave.basicV1.basicGet()
+  ], 200)
+}
+
 def parse(String description) {
-  logger("debug", "parse() - description: ${description.inspect()}")
-
+  logger("debug", "parse() - description: ${description?.inspect()}")
   def result = []
-  if (description != "updated") {
-    def cmd = zwave.parse(description, commandClassVersions)
-    if (cmd) {
-      result = zwaveEvent(cmd)
-      logger("debug", "parse() - description: ${description.inspect()} to cmd: ${cmd.inspect()} with result: ${result.inspect()}")
+  def cmd = zwave.parse(description, getCommandClassVersions())
 
-    } else {
-      logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
-    }
+  if (cmd) {
+    result = zwaveEvent(cmd)
+    logger("debug", "parse() - parsed to cmd: ${cmd?.inspect()} with result: ${result?.inspect()}")
+
+  } else {
+    logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
   }
 
   result
@@ -252,6 +271,7 @@ def parse(String description) {
 def handleMeterReport(cmd){
   logger("debug", "handleMeterReport() - cmd: ${cmd.inspect()}")
 
+  def result = []
   def meterTypes = ["Unknown", "Electric", "Gas", "Water"]
   def electricNames = ["energy", "energy", "power", "count", "voltage", "current", "powerFactor", "unknown"]
   def electricUnits = ["kWh", "kVAh", "W", "pulses", "V", "A", "Power Factor", ""]
@@ -300,27 +320,32 @@ def handleMeterReport(cmd){
 
     //Check if the value has changed my more than 5%, if so mark as a stateChange
     //map.isStateChange = ((cmd.scaledMeterValue - previousValue).abs() > (cmd.scaledMeterValue * 0.05))
-    createEvent(map)
+    result << createEvent(map)
+    if(logDescText) { log.info "${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
 
   } else if (cmd.meterType == 2) { // gas
     logger("info", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${gasUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
-
     def map = [name: "gas", unit: gasUnits[cmd.scale], value: cmd.scaledMeterValue, displayed: true]
-    createEvent(map)
+    result << createEvent(map)
+    if(logDescText) { log.info "${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
 
   } else if (cmd.meterType == 3) { // water
     logger("info", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${waterUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
     def map = [name: "water", unit: waterUnits[cmd.scale], value: cmd.scaledMeterValue, displayed: true]
-    createEvent(map)
+    result << createEvent(map)
+    if(logDescText) { log.info "${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
 
   } else { // meter
     def map = [name: "meter", descriptionText: cmd.toString()]
-    createEvent(map)
+    result << createEvent(map)
+    if(logDescText) { log.info "${map.name} is ${cmd.toString()}" }
+
   }
 
+  result
 }
 
-def zwaveEvent(hubitat.zwave.commands.meterv3.MeterReport cmd) {
+def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
   logger("trace", "zwaveEvent(MeterReport) - cmd: ${cmd.inspect()}")
   handleMeterReport(cmd)
 }
@@ -328,20 +353,15 @@ def zwaveEvent(hubitat.zwave.commands.meterv3.MeterReport cmd) {
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
 
-  def value = (cmd.value ? "on" : "off")
-  def evt = createEvent(name: "switch", value: value, type: "physical", descriptionText: "$device.displayName was turned $value")
-  if (evt.isStateChange) {
-    [evt, response(["delay 3000", zwave.meterV3.meterGet(scale: 2).format()])]
-  } else {
-    evt
-  }
+  def result = []
+  String value = (cmd.value ? "on" : "off")
+  result << createEvent(name: "switch", value: value, descriptionText: "$device.displayName was turned ${value}")
+
+  result
 }
 
 def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
   logger("trace", "zwaveEvent(SwitchBinaryReport) - cmd: ${cmd.inspect()}")
-
-  String value = (cmd.value ? "on" : "off")
-  createEvent(name: "switch", value: value, type: "digital", descriptionText: "$device.displayName was turned $value")
 }
 
 def zwaveEvent(hubitat.zwave.commands.hailv1.Hail cmd) {
@@ -351,19 +371,24 @@ def zwaveEvent(hubitat.zwave.commands.hailv1.Hail cmd) {
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
 
+  def result = []
+
   // The temperature sensor only measures the internal temperature of product (Circuit board)
   if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
-    createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true)
+    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue}${cmd.scale ? "F" : "C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
+
+  result
 }
 
 def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
   logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
 
   def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
-  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
+  logger("debug", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
@@ -398,8 +423,6 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", cmd.manufacturerName)
-
-  createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
 }
 
 def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
@@ -413,11 +436,10 @@ def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cm
   logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
 
   setSecured()
-  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
     logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand)
-
   } else {
     logger("warn", "zwaveEvent(SecurityMessageEncapsulation) - Unable to extract Secure command from: ${cmd.inspect()}")
   }
@@ -438,7 +460,7 @@ def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
 def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
   logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
 
-  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
     logger("trace", "zwaveEvent(MultiChannelCmdEncap) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
@@ -485,6 +507,25 @@ private isSecured() {
   getDataValue("secured") == "true"
 }
 
+private getCommandClassVersions() {
+  return [0x25: 1, // COMMAND_CLASS_SWITCH_BINARY
+          0x32: 4, // COMMAND_CLASS_METER
+          0x31: 5, // COMMAND_CLASS_SENSOR_MULTILEVEL
+          0x27: 1, // COMMAND_CLASS_SWITCH_ALL
+          0x2C: 1, // COMMAND_CLASS_SCENE_ACTUATOR_CONF
+          0x2B: 1, // COMMAND_CLASS_SCENE_ACTIVATION
+          0x70: 2, // COMMAND_CLASS_CONFIGURATION_V2 (Secure)
+          0x85: 2, // COMMAND_CLASS_ASSOCIATION_V2 (Secure)
+          0x59: 1, // COMMAND_CLASS_ASSOCIATION_GRP_INFO (Secure)
+          0x56: 1, // COMMAND_CLASS_CRC_16_ENCAP
+          0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
+          0x86: 1, // COMMAND_CLASS_VERSION (Insecure)
+          0x7A: 2, // COMMAND_CLASS_FIRMWARE_UPDATE_MD (Insecure)
+          0x73: 1, // COMMAND_CLASS_POWERLEVEL (Insecure)
+          0x98: 1  // COMMAND_CLASS_SECURITY (Secure)
+  ]
+}
+
 /**
  * @param level Level to log at, see LOG_LEVELS for options
  * @param msg Message to log
@@ -499,5 +540,30 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${msg}"
     }
+  }
+}
+
+def updateCheck() {
+  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Heavy%20Duty%20Smart%20Switch.groovy"]
+  asynchttpGet("updateCheckHandler", params)
+}
+
+private updateCheckHandler(resp, data) {
+  if (resp?.getStatus() == 200) {
+    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
+    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
+
+    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
+
+    if (ver_online > ver_cur) {
+      logger("info", "New version(${ver_online})")
+      state.driverInfo.status = "New version (${ver_online})"
+    } else if (ver_online == ver_cur) {
+      logger("info", "Current version")
+      state.driverInfo.status = 'Current version'
+    }
+
+  } else {
+    logger("error", "updateCheck() - Unable to download source file")
   }
 }

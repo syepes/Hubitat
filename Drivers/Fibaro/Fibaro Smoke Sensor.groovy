@@ -1,4 +1,5 @@
 /**
+ *  Copyright (C) Sebastian YEPES
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -23,8 +24,8 @@ metadata {
     capability "Actuator"
     capability "Sensor"
     capability "TamperAlert"
-    capability "Smoke Detector"
-    capability "Temperature Measurement"
+    capability "SmokeDetector"
+    capability "TemperatureMeasurement"
     capability "Battery"
     capability "Refresh"
     capability "Configuration"
@@ -33,7 +34,6 @@ metadata {
     command "clearState"
 
     attribute "heatAlarm", "enum", ["overheat", "inactive"]
-    attribute "tamperStatus", "string"
 
     fingerprint mfr:"010F", prod:"0C02"
     fingerprint deviceId: "0x0701", inClusters: "0x5E, 0x86, 0x72, 0x5A, 0x59, 0x85, 0x73, 0x84, 0x80, 0x71, 0x56, 0x70, 0x31, 0x8E, 0x22, 0x9C, 0x98, 0x7A", outClusters: "0x20, 0x8B"
@@ -43,7 +43,8 @@ metadata {
 
   preferences {
     section { // General
-      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL
+      input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
+      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
     }
     section { // Configuration
       input name: "wakeUpInterval", title: "Device Wake Up Interval", description: "", type: "enum", options:[[1:"1h"], [2:"2h"], [3:"3h"], [4:"4h"], [8:"8h"], [24:"12h"], [24: "24h"], [48: "48h"]], defaultValue: 1, required: true
@@ -70,22 +71,28 @@ metadata {
 def installed() {
   logger("debug", "installed(${VERSION})")
 
+  if (state.driverInfo == null || state.driverInfo.isEmpty()) {
+    state.driverInfo = [ver:VERSION, status:'Current version']
+  }
+
   if (state.deviceInfo == null) {
     state.deviceInfo = [:]
   }
-  state.driverVer = VERSION
 
   initialize()
 }
 
 def initialize() {
   logger("debug", "initialize()")
+  sendEvent(name: "smoke", value: "clear", displayed: true)
+  sendEvent(name: "heatAlarm", value: "clear", displayed: true)
+  sendEvent(name: "tamper", value: "clear", displayed: true)
 }
 
 def updated() {
   logger("debug", "updated()")
 
-  if (!state.driverVer || state.driverVer != VERSION) {
+  if (!state.driverInfo?.ver || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
     installed()
   }
 
@@ -98,19 +105,25 @@ def refresh() {
   updateDataValue("MSR", "")
 }
 
-
 def configure() {
   logger("debug", "configure()")
+  schedule("0 0 12 */7 * ?", updateCheck)
+
   logger("info", "Device configurations will be synchronized on the next device wakeUp")
   state.deviceConfigSynced = false
 }
 
 def clearState() {
   logger("debug", "ClearStates() - Clearing device states")
-
   state.clear()
 
-  if (state.deviceInfo == null) {
+  if (state?.driverInfo == null) {
+    state.driverInfo = [:]
+  } else {
+    state.driverInfo.clear()
+  }
+
+  if (state?.deviceInfo == null) {
     state.deviceInfo = [:]
   } else {
     state.deviceInfo.clear()
@@ -119,72 +132,74 @@ def clearState() {
 
 private alarmEventSmoke(value) {
   logger("debug", "alarmEventSmoke() - value: ${value}")
-
+  def result = []
   Map map = [name: "smoke", isStateChange: true]
 
   if (value == 2) {
     logger("info", "Smoke alart detected")
     map.value = "detected"
-    map.descriptionText = "Detected smoke"
+    map.descriptionText = "Smoke alarm is Active"
 
   } else if (value == 0) {
     logger("info", "Smoke alart cleared")
     map.value = "clear"
-    map.descriptionText = "Smoke alart is clear (no smoke)"
+    map.descriptionText = "Smoke alarm is Cleared (no smoke)"
 
   } else if (value == 3) {
     logger("info", "Smoke alart test")
     map.value = "tested"
-    map.descriptionText = "Smoke alarm test"
+    map.descriptionText = "Smoke alarm is Test"
 
   } else {
-    logger("warn", "Smoke alart unknown")
+    logger("warn", "Smoke alart unknown (${value})")
     map.value = "unknown"
-    map.descriptionText = "Unknown event"
-
+    map.descriptionText = "Smoke alarm Unknown (${value})"
   }
 
-  createEvent(map)
+  result << createEvent(map)
+  if(logDescText) { log.info "${map.descriptionText}" }
+
+  result
 }
 
 private alarmEventHeat(value) {
   logger("debug", "alarmEventHeat() - value: ${value}")
-
+  def result = []
   Map map = [name: "heatAlarm", isStateChange: true]
 
   if (value == 2) {
     logger("info", "Heat alart detected")
-    map.value = "overheat"
-    map.descriptionText = "Overheat detected"
+    map.value = "detected"
+    map.descriptionText = "Heat alarm is Active"
 
   } else if (value == 0) {
     logger("info", "Heat alart cleared")
-    map.value = "inactive"
-    map.descriptionText = "Heat alarm cleared (no overheat)"
+    map.value = "clear"
+    map.descriptionText = "Heat alarm is Cleared (no overheat)"
 
   } else {
     logger("warn", "Heat alart unknown (${value})")
     map.value = "unknown"
-    map.descriptionText = "Unknown event"
-
+    map.descriptionText = "Heat alarm is Unknown (${value})"
   }
 
-  createEvent(map)
+  result << createEvent(map)
+  if(logDescText) { log.info "${map.descriptionText}" }
+
+  result
 }
 
 def parse(String description) {
-  logger("debug", "parse() - description: ${description.inspect()}")
-
+  logger("debug", "parse() - description: ${description?.inspect()}")
   def result = []
-  if (description != "updated") {
-    def cmd = zwave.parse(description, commandClassVersions)
-    if (cmd) {
-      result = zwaveEvent(cmd)
-      logger("debug", "parse() - description: ${description.inspect()} to cmd: ${cmd.inspect()} with result: ${result.inspect()}")
+  def cmd = zwave.parse(description, getCommandClassVersions())
 
-    } else {
-      logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
-    }
+  if (cmd) {
+    result = zwaveEvent(cmd)
+    logger("debug", "parse() - parsed to cmd: ${cmd?.inspect()} with result: ${result?.inspect()}")
+
+  } else {
+    logger("error", "parse() - Non-parsed - description: ${description?.inspect()}")
   }
 
   result
@@ -193,9 +208,8 @@ def parse(String description) {
 def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("trace", "zwaveEvent(WakeUpNotification) - cmd: ${cmd.inspect()}")
   logger("info", "Device woke up")
-
   def cmds = []
-  def results = [createEvent(descriptionText: "$device.displayName woke up", isStateChange: true)]
+  def result = []
 
   cmds = cmds + cmdSequence([
     zwave.batteryV1.batteryGet(),
@@ -226,7 +240,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   }
 
   // Refresh if MSR is not set
-  if (!getDataValue("MSR") ) {
+  if (!getDataValue("MSR")) {
     logger("info", "Refresing device info")
 
     cmds = cmds + cmdSequence([
@@ -237,23 +251,20 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
     ], 100)
   }
 
-  cmds << "delay " + (5000 + 15 * 1500)
-  cmds << cmd(zwave.wakeUpV1.wakeUpNoMoreInformation())
+  cmds = cmds + cmdSequence([zwave.wakeUpV1.wakeUpNoMoreInformation()], 500)
+  result = result + response(cmds)
 
-  results = results + response(cmds)
-  logger("debug", "zwaveEvent(WakeUpNotification) - results: ${results.inspect()}")
-
-  results
+  result
 }
 
 def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
   logger("trace", "zwaveEvent(AssociationReport) - cmd: ${cmd.inspect()}")
-
   def result = []
+
   if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    result << createEvent(descriptionText: "$device.displayName is associated in group ${cmd.groupingIdentifier}")
+    logger("info", "$device.displayName is associated in group ${cmd.groupingIdentifier}")
   } else if (cmd.groupingIdentifier == 1) {
-    result << createEvent(descriptionText: "Associating $device.displayName in group ${cmd.groupingIdentifier}")
+    logger("info", "Associating $device.displayName in group ${cmd.groupingIdentifier}")
     result << response(zwave.associationV1.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
   }
   result
@@ -267,7 +278,6 @@ def zwaveEvent(hubitat.zwave.commands.timeparametersv1.TimeParametersGet cmd) {
   response(zwave.timeParametersV1.timeParametersReport(year: nowCal.get(Calendar.YEAR), month: (nowCal.get(Calendar.MONTH) + 1), day: nowCal.get(Calendar.DAY_OF_MONTH), hourUtc: nowCal.get(Calendar.HOUR_OF_DAY), minuteUtc: nowCal.get(Calendar.MINUTE), secondUtc: nowCal.get(Calendar.SECOND)).format())
 }
 
-
 def zwaveEvent(hubitat.zwave.commands.applicationstatusv1.ApplicationBusy cmd) {
   logger("trace", "zwaveEvent(ApplicationBusy) - cmd: ${cmd.inspect()}")
   logger("warn", "Is busy")
@@ -280,7 +290,6 @@ def zwaveEvent(hubitat.zwave.commands.applicationstatusv1.ApplicationRejectedReq
 
 def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
   logger("trace", "zwaveEvent(NotificationReport) - cmd: ${cmd.inspect()}")
-
   def result = []
 
   if (cmd.notificationType == 1) { // Smoke Alarm (V2)
@@ -330,13 +339,17 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
   logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
 }
 
+
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
 }
 
+def zwaveEvent(hubitat.zwave.commands.basicv1.BasicSet cmd) {
+  logger("trace", "zwaveEvent(BasicSet) - cmd: ${cmd.inspect()}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.sensoralarmv1.SensorAlarmReport cmd) {
   logger("trace", "zwaveEvent(SensorAlarmReport) - cmd: ${cmd.inspect()}")
-
   def map = [isStateChange:true]
 
   switch (cmd.sensorType) {
@@ -357,18 +370,22 @@ def zwaveEvent(hubitat.zwave.commands.sensoralarmv1.SensorAlarmReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
+  def result = []
 
   if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
-    createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
+    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue}${cmd.scale ? "F" : "C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
+
+  result
 }
 
 def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
   logger("trace", "zwaveEvent(BatteryReport) - cmd: ${cmd.inspect()}")
-
   Map map = [ name: "battery", unit: "%" ]
+
   if (cmd.batteryLevel == 0xFF) {
     map.value = 1
     map.descriptionText = "${device.displayName} has a low battery"
@@ -379,7 +396,6 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = cmd.batteryLevel
     map.descriptionText = "${device.displayName} battery is ${cmd.batteryLevel}%"
     logger("info", map.descriptionText)
-
   }
 
   createEvent(map)
@@ -387,9 +403,8 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
   logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
-
   def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
-  logger("info", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
+  logger("debug", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
@@ -424,8 +439,6 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", cmd.manufacturerName)
-
-  createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
 }
 
 def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
@@ -439,7 +452,7 @@ def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cm
   logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - cmd: ${cmd.inspect()}")
 
   setSecured()
-  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
     logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand)
@@ -464,7 +477,7 @@ def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
 def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
   logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
 
-  def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
+  def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
     logger("trace", "zwaveEvent(MultiChannelCmdEncap) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
@@ -515,6 +528,29 @@ private isSecured() {
   getDataValue("secured") == "true"
 }
 
+private getCommandClassVersions() {
+  return [0x5E: 1, // COMMAND_CLASS_ZWAVEPLUS_INFO (Insecure)
+          0x20: 1, // COMMAND_CLASS_BASIC
+          0x86: 1, // COMMAND_CLASS_VERSION (Insecure)
+          0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
+          0x5A: 1, // COMMAND_CLASS_DEVICE_RESET_LOCALLY (Insecure)
+          0x59: 1, // COMMAND_CLASS_ASSOCIATION_GRP_INFO (Secure)
+          0x85: 2, // COMMAND_CLASS_ASSOCIATION (Secure)
+          0x73: 1, // COMMAND_CLASS_POWERLEVEL (Insecure)
+          0x84: 2, // COMMAND_CLASS_WAKE_UP_V2
+          0x80: 1, // COMMAND_CLASS_BATTERY
+          0x71: 3, // COMMAND_CLASS_ALARM (Secure)
+          0x56: 1, // COMMAND_CLASS_CRC_16_ENCAP
+          0x70: 2, // COMMAND_CLASS_CONFIGURATION_V2 (Secure)
+          0x31: 5, // COMMAND_CLASS_SENSOR_MULTILEVEL
+          0x8E: 2, // COMMAND_CLASS_MULTI_INSTANCE_ASSOCIATION
+          0x22: 1, // COMMAND_CLASS_APPLICATION_STATUS
+          0x9C: 1, // OMMAND_CLASS_SENSOR_ALARM
+          0x98: 1, // COMMAND_CLASS_SECURITY (Secure)
+          0x7A: 2  // COMMAND_CLASS_FIRMWARE_UPDATE_MD (Insecure)
+  ]
+}
+
 /**
  * @param level Level to log at, see LOG_LEVELS for options
  * @param msg Message to log
@@ -529,5 +565,30 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${msg}"
     }
+  }
+}
+
+public updateCheck() {
+  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.groovy"]
+  asynchttpGet("updateCheckHandler", params)
+}
+
+private updateCheckHandler(resp, data) {
+  if (resp?.getStatus() == 200) {
+    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
+    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
+
+    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
+
+    if (ver_online > ver_cur) {
+      logger("info", "New version(${ver_online})")
+      state.driverInfo.status = "New version (${ver_online})"
+    } else if (ver_online == ver_cur) {
+      logger("info", "Current version")
+      state.driverInfo.status = 'Current version'
+    }
+
+  } else {
+    logger("error", "updateCheck() - Unable to download source file")
   }
 }
