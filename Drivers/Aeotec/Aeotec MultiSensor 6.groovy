@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -75,7 +75,7 @@ metadata {
 def installed() {
   logger("debug", "installed(${VERSION})")
 
-  if (state.driverInfo == null || state.driverInfo.isEmpty()) {
+  if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
     state.driverInfo = [ver:VERSION, status:'Current version']
     state.driverInfo.configSynced = false
   }
@@ -334,7 +334,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
     break;
   }
 
-  if(map?.descriptionText) { log.info "${map.descriptionText}" }
+  if(map?.descriptionText) { logger("info", "${map.descriptionText}") }
   if(logDescText && map?.descriptionText) { log.info "${map.descriptionText}" }
   result << createEvent(map)
   result

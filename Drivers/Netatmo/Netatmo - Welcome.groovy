@@ -53,7 +53,7 @@
 def installed() {
   logger("debug", "installed(${VERSION})")
 
-  if (state.driverInfo == null || state.driverInfo.isEmpty()) {
+  if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
     state.driverInfo = [ver:VERSION, status:'Current version']
   }
 
