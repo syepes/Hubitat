@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -53,17 +53,14 @@ metadata {
       input name: "param2", title: "Z-Wave notifications", description: "Activate excess temperature and/or enclosure opening notifications sent to the main controller", type: "enum", options:[[0:"All notifications disabled"],[1:"Enclosure opening notification enabled"],[2:"Exceeding temperature threshold notification enabled"],[3:"All notifications enabled"]], defaultValue: 0, required: true
       input name: "param3", title: "Visual notifications", description: "Activate visual indications but does not apply to major alarms, such as FIRE, TROUBLE and LOW BATTERY ALARM", type: "enum", options:[[0:"All notifications disabled"],[1:"Enclosure opening notification enabled"],[2:"Exceeding temperature threshold notification enabled"],[4:"Lack of Z-Wave range notification"]], defaultValue: 0, required: true
       input name: "param4", title: "Sound notifications", description: "Activate sound signals but does not apply to major alarms, such as FIRE, TROUBLE and LOW BATTERY ALARM", type: "enum", options:[[0:"All notifications disabled"],[1:"Enclosure opening notification enabled"],[2:"Exceeding temperature threshold notification enabled"],[4:"Lack of Z-Wave range notification"]], defaultValue: 0, required: true
-
-      input name: "param10", title: "Control frames in BASIC", description: "This parameter defines which frames will be sent in the 2-nd Association Group (FIRE ALARM). The values of BASIC ON and BASIC OFF frames may be defined as described in further parameters", type: "enum", options:[[0:"BASIC ON & BASIC OFF enabled"],[1:"BASIC ON enabled"],[2:"BASIC OFF enabled"]], defaultValue: 0, required: true
-      input name: "param11", title: "BASIC ON frame value", description: "BASIC ON frame is sent in case of smoke presence detection and Fire Alarmtriggering. Its value is defined by the parameter", type: "number", range: "0..255",defaultValue: 255, required: true
-      input name: "param12", title: "BASIC OFF frame value", description: "BASIC OFF frame is sent in case of Fire Alarm cancellation. Its value is defined by the parameter", type: "number", range: "0..255",defaultValue: 0, required: true
-      input name: "param13", title: "Alarm broadcast", description: "A value other than 0 means that alarms are being sent in broadcast mode, i.e. to all devices within a FIBARO Smoke Sensor’s range", type: "enum", options:[[0:"Broadcast inactive"],[1:"FIRE ALARM broadcast (2nd & 4th Association Group) active; enclosure opening notification broadcast (3rd & 5th Association Group) inactive"],[2:"FIRE ALARM broadcast (2nd & 4th Association Group) inactive; enclosure opening notification broadcast (3rd & 5th Association Group) active"],[2:"FIRE ALARM broadcast (2nd & 4th Association Group) active; enclosure opening notification broadcast (3rd & 5th Association Group) active"]], defaultValue: 0, required: true
-
-      input name: "param20", title: "Temperature report interval", description: "The temperature report will only be sent if there is a difference in temperature valuefrom the previous value reported", type: "enum", options:[[1:"10s"], [3:"30s"], [6:"60s"], [30:"300s"], [60:"600s"], [180:"1800s"], [360:"3600s"], [864: "8640s"]], defaultValue: 1, required: true
-      input name: "param21", title: "Temperature reports threshold (Hysteresis)", description: "The temperature report will only be sent if there is a difference in temperature valuefrom the previous value reported", type: "enum", options:[[3:"0.3°C"], [5:"0.5°C"], [10:"1°C"], [15:"1.5°C"], [20:"2°C"], [25:"2.5°C"], [30:"3°C"]], defaultValue: 10, required: true
+      input name: "param13", title: "Alarm broadcast", description: "A value other than 0 means that alarms are being sent in broadcast mode, i.e. to all devices within a FIBARO Smoke Sensor’s range", type: "enum", options:[[0:"Broadcast inactive"],[1:"FIRE ALARM broadcast (2nd & 4th Association Group) active; enclosure opening notification broadcast (3rd & 5th Association Group) inactive"],[2:"FIRE ALARM broadcast (2nd & 4th Association Group) inactive; enclosure opening notification broadcast (3rd & 5th Association Group) active"],[3:"FIRE ALARM broadcast (2nd & 4th Association Group) active; enclosure opening notification broadcast (3rd & 5th Association Group) active"]], defaultValue: 0, required: true
+      input name: "param10", title: "Report BASIC command", description: "This parameter defines which frames will be sent in the 2-nd Association Group (FIRE ALARM). The values of BASIC ON and BASIC OFF frames may be defined as described in further parameters", type: "enum", options:[[0:"BASIC ON & BASIC OFF enabled"],[1:"BASIC ON enabled"],[2:"BASIC OFF enabled"]], defaultValue: 0, required: true
+      input name: "param11", title: "BASIC ON value", description: "BASIC ON frame is sent in case of smoke presence detection and Fire Alarmtriggering. Its value is defined by the parameter", type: "number", range: "0..255",defaultValue: 255, required: true
+      input name: "param12", title: "BASIC OFF value", description: "BASIC OFF frame is sent in case of Fire Alarm cancellation. Its value is defined by the parameter", type: "number", range: "0..255",defaultValue: 0, required: true
+      input name: "param20", title: "Temperature report interval", description: "The temperature report will only be sent if there is a difference in temperature valuefrom the previous value reported", type: "enum", options:[[1:"10s"], [3:"30s"], [6:"60s"], [30:"300s"], [60:"600s"], [180:"1800s"], [360:"3600s"], [864: "8640s"]], defaultValue: 3, required: true
+      input name: "param21", title: "Temperature reports threshold (Hysteresis)", description: "The temperature report will only be sent if there is a difference in temperature valuefrom the previous value reported", type: "enum", options:[[2:"0.2°C"], [3:"0.3°C"], [5:"0.5°C"], [10:"1°C"], [15:"1.5°C"], [20:"2°C"], [25:"2.5°C"], [30:"3°C"]], defaultValue: 5, required: true
       input name: "param30", title: "Temperature threshold", description: "Temperature value measured by the built-in temperature sensor above which the excess temperature notification is sent", type: "enum", options:[[40:"100°F / 40°C"], [45:"110°F / 45°C"], [50:"120°F / 50°C"], [55:"130°F / 55°C"], [60:"140°F / 60°C"], [65:"150°F / 65°C"], [71:"160°F / 71°C"], [77:"170°F / 77°C"], [82:"180°F / 82°C"], [93:"200°F / 93°C"]], defaultValue: 55, required: true
       input name: "param31", title: "Temperature excess signaling interval", description: "Time interval of signaling (visual indication/sound) excess temperature level", type: "enum", options:[[1:"10s"], [3:"30s"], [6:"60s"], [30:"300s"], [60:"600s"], [180:"1800s"], [360:"3600s"], [8640: "8640s"]], defaultValue: 1, required: true
-
       input name: "param32", title: "Lack of Z-Wave range interval", description: "Time interval of signaling (visual indication/sound) lack of Z-Wave range", type: "enum", options:[[1:"10s"], [3:"30s"], [6:"60s"], [30:"300s"], [60:"600s"], [180:"1800s"], [360:"3600s"], [8640: "8640s"]], defaultValue: 180, required: true
     }
   }
@@ -280,14 +277,6 @@ def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
     result << response(zwave.associationV2.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
   }
   result
-}
-
-def zwaveEvent(hubitat.zwave.commands.timeparametersv1.TimeParametersGet cmd) {
-  logger("trace", "zwaveEvent(TimeParametersGet) - cmd: ${cmd.inspect()}")
-
-  //Time Parameters are requested by an un-encapsulated frame
-  def nowCal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-  response(zwave.timeParametersV1.timeParametersReport(year: nowCal.get(Calendar.YEAR), month: (nowCal.get(Calendar.MONTH) + 1), day: nowCal.get(Calendar.DAY_OF_MONTH), hourUtc: nowCal.get(Calendar.HOUR_OF_DAY), minuteUtc: nowCal.get(Calendar.MINUTE), secondUtc: nowCal.get(Calendar.SECOND)).format())
 }
 
 def zwaveEvent(hubitat.zwave.commands.applicationstatusv1.ApplicationBusy cmd) {
