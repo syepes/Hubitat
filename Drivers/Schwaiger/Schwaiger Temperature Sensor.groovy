@@ -14,13 +14,13 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Schwaiger Temperature Sensor", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Schwaiger/Schwaiger%20Temperature%20Sensor.groovy") {
+  definition (name: "Schwaiger Temperature Sensor", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Schwaiger/Schwaiger%20Temperature%20Sensor.groovy") {
     capability "Actuator"
     capability "Sensor"
     capability "ThermostatHeatingSetpoint"
@@ -43,6 +43,7 @@ metadata {
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
     }
     section { // Configuration
+      input name: "batteryCheckInterval", title: "Device Battery Check Interval", description: "How aften (hours) should we check the battery level", type: "number", defaultValue: 24, required: true
       input name: "wakeUpInterval", title: "Device Wake Up Interval", description: "", type: "enum", options:[[1:"1h"], [2:"2h"], [3:"3h"], [4:"4h"], [8:"8h"], [24:"12h"], [24: "24h"], [48: "48h"]], defaultValue: 3, required: true
       input name: "protect_local", title: "Local Protection", description: "Applies to physical switches", type: "enum", options:[[0:"No protection"], [2:"User interface locked"]], defaultValue: 0, required: true
       input name: "protect_remote", title: "Remote Protection", description: "Applies to Z-Wave commands sent from hub or other devices", type: "enum", options:[[0:"No protection"], [1:"No RF control"], [2:"No RF response"]], defaultValue: 0, required: true
@@ -70,6 +71,7 @@ def installed() {
 
   if (state.driverInfo == null || state.driverInfo.isEmpty()) {
     state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo.configSynced = false
   }
 
   if (state.deviceInfo == null) {
@@ -96,6 +98,7 @@ def updated() {
 
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
+  state.deviceInfo.lastbatt = now()
   updateDataValue("MSR", "")
 }
 
@@ -104,7 +107,7 @@ def configure() {
   schedule("0 0 12 */7 * ?", updateCheck)
 
   logger("info", "Device configurations will be synchronized on the next device wakeUp")
-  state.deviceConfigSynced = false
+  state.driverInfo.configSynced = false
 }
 
 def clearState() {
@@ -166,17 +169,17 @@ def zwaveEvent(hubitat.zwave.commands.centralscenev1.CentralSceneNotification cm
   def result = []
 
   if (cmd.keyAttributes == 0) {
-    result << createEvent(name: "pushed", value: 1, data: [buttonNumber: 1], descriptionText: "${device.displayName} button was pushed")
+    result << createEvent(name: "pushed", value: 1, data: [buttonNumber: 1], descriptionText: "Button was pushed")
     logger("info", "Button Pushed")
   }
 
   if (cmd.keyAttributes == 1) {
-    result << createEvent(name: "released", value: 1, data: [buttonNumber: 1], descriptionText: "${device.displayName} button was released")
+    result << createEvent(name: "released", value: 1, data: [buttonNumber: 1], descriptionText: "Button was released")
     logger("info", "Button Released")
   }
 
   if (cmd.keyAttributes == 2) {
-    result << createEvent(name: "held", value: 1, data: [buttonNumber: 1], descriptionText: "${device.displayName} button was held")
+    result << createEvent(name: "held", value: 1, data: [buttonNumber: 1], descriptionText: "Button was held")
     logger("info", "Button Held")
   }
 
@@ -204,22 +207,22 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("trace", "zwaveEvent(WakeUpNotification) - cmd: ${cmd.inspect()}")
   logger("info", "Device woke up")
   def cmds = []
-  def results = []
+  def result = []
 
   // zwave.scheduleV1.commandScheduleGet(), // Not Implemented in HE
   // zwave.scheduleV1.scheduleStateReport(), // Not Implemented in HE
   cmds = cmds + cmdSequence([
-    zwave.batteryV1.batteryGet(),
     zwave.thermostatSetpointV1.thermostatSetpointGet(setpointType: 1),
     zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0)
   ], 300)
 
   // Only send config if not synced
-  if (!state?.deviceConfigSynced) {
+  if (!state?.driverInfo?.configSynced) {
     logger("info", "Synchronizing device config")
 
     cmds = cmds + cmdSequence([
-      zwave.wakeUpV1.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 3600, nodeid:zwaveHubNodeId),
+      zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
+      zwave.wakeUpV2.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 3600, nodeid:zwaveHubNodeId),
       zwave.indicatorV1.indicatorSet(value: 255),
       zwave.configurationV1.configurationSet(parameterNumber: 1, size: 2, scaledConfigurationValue: param1.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 2, size: 2, scaledConfigurationValue: param2.toInteger()),
@@ -236,7 +239,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
       zwave.indicatorV1.indicatorGet(),
       zwave.protectionV2.protectionGet()
     ], 300)
-    state?.deviceConfigSynced = true
+    state.driverInfo.configSynced = true
   }
 
   // Refresh if MSR is not set
@@ -250,10 +253,15 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
     ], 100)
   }
 
-  cmds = cmds + cmdSequence([zwave.wakeUpV1.wakeUpNoMoreInformation()], 500)
-  results = results + response(cmds)
+  // Check battery level only once every Xh
+  if (!state?.deviceInfo?.lastbatt || now() - state.deviceInfo.lastbatt >= batteryCheckInterval?.toInteger() *60*60*1000) {
+    cmds = cmds + cmdSequence([zwave.batteryV1.batteryGet()], 100)
+  }
 
-  results
+  cmds = cmds + cmdSequence([zwave.wakeUpV2.wakeUpNoMoreInformation()], 500)
+  result = result + response(cmds)
+
+  result
 }
 
 def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
@@ -261,10 +269,10 @@ def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
   def result = []
 
   if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    logger("info", "$device.displayName is associated in group ${cmd.groupingIdentifier}")
+    logger("info", "Is associated in group ${cmd.groupingIdentifier}")
   } else if (cmd.groupingIdentifier == 1) {
-    logger("info", "Associating $device.displayName in group ${cmd.groupingIdentifier}")
-    result << response(zwave.associationV1.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
+    logger("info", "Associating in group ${cmd.groupingIdentifier}")
+    result << response(zwave.associationV2.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
   }
   result
 }
@@ -300,9 +308,9 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
   def result = []
 
-  if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
-    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue}${cmd.scale ? "F" : "C"}" }
+  if (cmd.sensorType == 1) {
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
+    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
@@ -315,15 +323,16 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
 
   if (cmd.batteryLevel == 0xFF) {
     map.value = 1
-    map.descriptionText = "${device.displayName} has a low battery"
+    map.descriptionText = "Has a low battery"
     map.isStateChange = true
     logger("warn", map.descriptionText)
   } else {
     map.value = cmd.batteryLevel
-    map.descriptionText = "${device.displayName} battery is ${cmd.batteryLevel}%"
+    map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
     logger("info", map.descriptionText)
   }
 
+  state.deviceInfo.lastbatt = now()
   createEvent(map)
 }
 
@@ -482,7 +491,7 @@ private logger(level, msg) {
 }
 
 def updateCheck() {
-  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Schwaiger/Schwaiger%20Temperature%20Sensor.groovy"]
+  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Schwaiger/Schwaiger%20Temperature%20Sensor.groovy"]
   asynchttpGet("updateCheckHandler", params)
 }
 

@@ -78,7 +78,7 @@ def installed() {
 
 def initialize() {
   logger("debug", "initialize()")
-  sendEvent(name: "status", value: "unknown", descriptionText: "${device.displayName} is unknown", displayed: true)
+  sendEvent(name: "status", value: "unknown", descriptionText: "Is unknown", displayed: true)
 
   def slurper = new JsonSlurper()
   def vd_data = slurper.parseText(VD_JSON)
@@ -155,7 +155,7 @@ def checkState() {
 
   if (state?.devicePings >= 3) {
     if (device.currentValue('status') != 'offline') {
-      sendEvent([ name: "status", value: 'offline', descriptionText: "${device.displayName} is offline", displayed: true])
+      sendEvent([ name: "status", value: 'offline', descriptionText: "Is offline", displayed: true])
     }
     logger("warn", "Device is offline")
   }
@@ -178,7 +178,7 @@ def parse(String description) {
         deviceUpdate()
       } else {
         if (device.currentValue('status') != 'offline') {
-          result << createEvent([ name: "status", value: 'offline', descriptionText: "${device.displayName} is offline", displayed: true])
+          result << createEvent([ name: "status", value: 'offline', descriptionText: "Is offline", displayed: true])
         }
       }
     }
@@ -196,7 +196,7 @@ def deviceUpdate() {
   // Sets the device status to online, but only if previously was offline
   Map deviceState = [ name: "status",
                       value: 'online',
-                      descriptionText: "${device.displayName} is online",
+                      descriptionText: "Is online",
                       displayed: true
                     ]
 
@@ -231,9 +231,9 @@ private def childClose(String value) {
 
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.close
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
-              cd.parse([[name:"windowShade", value:"closed", descriptionText:"${cd.displayName} was closed"]])
-              cd.parse([[name:"switch", value:"off", descriptionText:"${cd.displayName} was opened"]])
-              if(logDescText) { log.info "${cd.displayName} was closed" }
+              cd.parse([[name:"windowShade", value:"closed", descriptionText:"Was closed"]])
+              cd.parse([[name:"switch", value:"off", descriptionText:"Was opened"]])
+              if(logDescText) { log.info "Was closed" }
             }
 
         } else {
@@ -265,9 +265,9 @@ private def childOpen(String value) {
 
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.open
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
-              cd.parse([[name:"windowShade", value:"closed", descriptionText:"${cd.displayName} was opened"]])
-              cd.parse([[name:"switch", value:"on", descriptionText:"${cd.displayName} was opened"]])
-              if(logDescText) { log.info "${cd.displayName} was opened" }
+              cd.parse([[name:"windowShade", value:"closed", descriptionText:"Was opened"]])
+              cd.parse([[name:"switch", value:"on", descriptionText:"Was opened"]])
+              if(logDescText) { log.info "Was opened" }
             }
 
         } else {
@@ -299,8 +299,8 @@ private def childStop(String value) {
 
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.stop
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
-              cd.parse([[name:"windowShade", value:"partially open", descriptionText:"${cd.displayName} was stopped"]])
-              if(logDescText) { log.info "${cd.displayName} was stopped" }
+              cd.parse([[name:"windowShade", value:"partially open", descriptionText:"Was stopped"]])
+              if(logDescText) { log.info "Was stopped" }
             }
 
         } else {
@@ -338,8 +338,8 @@ private def childOn(String value) {
 
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.off
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
-              cd.parse([[name:"switch", value:"off", descriptionText:"${cd.displayName} was turned off"]])
-              if(logDescText) { log.info "${cd.displayName} was turned off" }
+              cd.parse([[name:"switch", value:"off", descriptionText:"Was turned off"]])
+              if(logDescText) { log.info "Was turned off" }
             }
 
         } else {
@@ -371,8 +371,8 @@ private def childOff(String value) {
 
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.on
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
-              cd.parse([[name:"switch", value:"on", descriptionText:"${cd.displayName} was turned on"]])
-              if(logDescText) { log.info "${cd.displayName} was turned on" }
+              cd.parse([[name:"switch", value:"on", descriptionText:"Was turned on"]])
+              if(logDescText) { log.info "Was turned on" }
             }
 
         } else {

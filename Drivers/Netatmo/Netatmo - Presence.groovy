@@ -108,11 +108,7 @@ def refresh() {
 
 def parse(String description) {
   logger("trace", "parse() - description: ${description?.inspect()}")
-  List result = []
-  Map descMap = parseDescriptionAsMap(description)
-
-  logger("debug", "parse() - descMap: ${descMap?.inspect()} with result: ${result?.inspect()}")
-  result
+  return []
 }
 
 private parseDescriptionAsMap(description) {

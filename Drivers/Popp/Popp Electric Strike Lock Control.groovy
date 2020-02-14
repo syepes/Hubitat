@@ -15,13 +15,13 @@
 import hubitat.zwave.commands.doorlockv1.*
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Popp Electric Strike Lock Control", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Popp/Popp%20Electric%20Strike%20Lock%20Control.groovy") {
+  definition (name: "Popp Electric Strike Lock Control", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Popp/Popp%20Electric%20Strike%20Lock%20Control.groovy") {
     capability "Actuator"
     capability "Lock"
     capability "DoorControl"
@@ -129,6 +129,8 @@ def configure() {
   }
 
   cmds = cmdSequence([
+    zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId),
     zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: lockTimeout.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: param2.toInteger()),
@@ -265,6 +267,15 @@ def zwaveEvent(hubitat.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
   logger("trace", "zwaveEvent(AssociationReport) - cmd: ${cmd.inspect()}")
+  def result = []
+
+  if (cmd.nodeId.any { it == zwaveHubNodeId }) {
+    logger("info", "Is associated in group ${cmd.groupingIdentifier}")
+  } else if (cmd.groupingIdentifier == 1) {
+    logger("info", "Associating in group ${cmd.groupingIdentifier}")
+    result << response(zwave.associationV2.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
+  }
+  result
 }
 
 def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
@@ -282,12 +293,12 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
 
   if (cmd.batteryLevel == 0xFF) {
     map.value = 1
-    map.descriptionText = "${device.displayName} has a low battery"
+    map.descriptionText = "Has a low battery"
     map.isStateChange = true
     logger("warn", map.descriptionText)
   } else {
     map.value = cmd.batteryLevel
-    map.descriptionText = "$device.displayName battery is ${cmd.batteryLevel}%"
+    map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
     logger("info", map.descriptionText)
   }
 
@@ -470,7 +481,7 @@ private logger(level, msg) {
 }
 
 def updateCheck() {
-  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Popp/Popp%20Electric%20Strike%20Lock%20Control.groovy"]
+  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Popp/Popp%20Electric%20Strike%20Lock%20Control.groovy"]
   asynchttpGet("updateCheckHandler", params)
 }
 

@@ -99,7 +99,7 @@ def refresh() {
 
 def parse(String description) {
   logger("trace", "parse() - description: ${description?.inspect()}")
-  result []
+  return []
 }
 
 def setHome(homeID,homeName) {

@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -128,7 +128,7 @@ def devicePoll() {
 
   if (state.devicePings >= 3) {
     if (device.currentValue('status') != 'offline') {
-      sendEvent([ name: "status", value: 'offline', descriptionText: "${device.displayName} is offline", isStateChange: true, displayed: true])
+      sendEvent([ name: "status", value: 'offline', descriptionText: "Is offline", isStateChange: true, displayed: true])
     }
     logger("warn", "Device is offline")
   }
@@ -142,7 +142,7 @@ def deviceUpdate() {
   // Sets the device status to online, but only if previously was offline
   Map deviceState = [ name: "status",
                       value: 'online',
-                      descriptionText: "$device.displayName is online",
+                      descriptionText: "Is online",
                       isStateChange: (device.currentValue('status') != 'online' ? true : false),
                       displayed: (device.currentValue('status') != 'online' ? true : false)
   ]
@@ -216,7 +216,7 @@ def commTestResults() {
     logger("warn", "Device unreachable")
 
     if (device.currentValue('status') != 'offline') {
-      sendEvent([ name: "status", value: 'offline', descriptionText: "${device.displayName} is offline", isStateChange: true, displayed: true])
+      sendEvent([ name: "status", value: 'offline', descriptionText: "Is offline", isStateChange: true, displayed: true])
     }
   }
 }
@@ -301,8 +301,6 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", cmd.manufacturerName)
-
-  createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
 }
 
 def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {

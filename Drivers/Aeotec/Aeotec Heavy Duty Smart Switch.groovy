@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -41,7 +41,7 @@ metadata {
     fingerprint inClusters: "0x25,0x32"
     fingerprint mfr: "0086", prod: "0103", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //US
     fingerprint mfr: "0086", prod: "0003", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //EU
-    fingerprint deviceId: " 78", inClusters: "0x5E, 0x25, 0x32, 0x31, 0x27, 0x2C, 0x2B, 0x70, 0x85, 0x59, 0x56, 0x72, 0x86, 0x7A, 0x73, 0x98"
+    fingerprint deviceId: "78", inClusters: "0x5E, 0x25, 0x32, 0x31, 0x27, 0x2C, 0x2B, 0x70, 0x85, 0x59, 0x56, 0x72, 0x86, 0x7A, 0x73, 0x98"
   }
 
   preferences {
@@ -68,7 +68,6 @@ metadata {
       input name: "param92", title: "Minimum change in percentage (92)", description: "Report when the change of the current power is more/less than the threshold in percentage", type: "number", range: "0..100", defaultValue: 10, required: true
     }
   }
-
 }
 
 def installed() {
@@ -157,9 +156,8 @@ def off() {
 
 def configure() {
   logger("debug", "configure()")
-
   def cmds = []
-  def results = []
+  def result = []
 
   schedule("0 0 12 */7 * ?", updateCheck)
 
@@ -192,6 +190,8 @@ def configure() {
 
   cmds = cmds + cmdSequence([
     zwave.switchAllV1.switchAllSet(mode: switchAllMode),
+    zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId),
     zwave.configurationV1.configurationSet(parameterNumber: 20, size: 1, scaledConfigurationValue: param20.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: param111.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: reportGroup),
@@ -201,10 +201,10 @@ def configure() {
     zwave.configurationV1.configurationSet(parameterNumber: 92, size: 1, scaledConfigurationValue: param92.toInteger())
   ], 500)
 
-  results = results + response(cmds)
-  logger("debug", "configure() - results: ${results.inspect()}")
+  result = result + response(cmds)
+  logger("debug", "configure() - result: ${result.inspect()}")
 
-  results
+  result
 }
 
 def reset() {
@@ -289,33 +289,33 @@ def handleMeterReport(cmd){
       case 0: //kWh
         previousValue = device.currentValue("energy") ?: cmd.scaledPreviousMeterValue ?: 0
         map.value = cmd.scaledMeterValue
-        break;
+      break;
       case 1: //kVAh
         map.value = cmd.scaledMeterValue
-        break;
+      break;
       case 2: //Watts
         previousValue = device.currentValue("power") ?: cmd.scaledPreviousMeterValue ?: 0
         map.value = Math.round(cmd.scaledMeterValue)
-        break;
+      break;
       case 3: //pulses
         map.value = Math.round(cmd.scaledMeterValue)
-        break;
+      break;
       case 4: //Volts
         previousValue = device.currentValue("voltage") ?: cmd.scaledPreviousMeterValue ?: 0
         map.value = cmd.scaledMeterValue
-        break;
+      break;
       case 5: //Amps
         previousValue = device.currentValue("current") ?: cmd.scaledPreviousMeterValue ?: 0
         map.value = cmd.scaledMeterValue
-        break;
+      break;
       case 6: //Power Factor
       case 7: //Unknown
         logger("warn", "handleMeterReport() - Unknown type: ${cmd.scale}")
         map.value = cmd.scaledMeterValue
-        break;
+      break;
       default:
         logger("warn", "handleMeterReport() - Unknown type: ${cmd.scale}")
-        break;
+      break;
     }
 
     //Check if the value has changed my more than 5%, if so mark as a stateChange
@@ -345,6 +345,28 @@ def handleMeterReport(cmd){
   result
 }
 
+def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
+  logger("trace", "zwaveEvent(AssociationReport) - cmd: ${cmd.inspect()}")
+  def result = []
+
+  if (cmd.nodeId.any { it == zwaveHubNodeId }) {
+    logger("info", "Is associated in group ${cmd.groupingIdentifier}")
+  } else if (cmd.groupingIdentifier == 1) {
+    logger("info", "Associating in group ${cmd.groupingIdentifier}")
+    result << response(zwave.associationV2.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
+  }
+  result
+}
+
+def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
+  logger("trace", "zwaveEvent(ConfigurationReport) - cmd: ${cmd.inspect()}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
+  logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
+  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+}
+
 def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
   logger("trace", "zwaveEvent(MeterReport) - cmd: ${cmd.inspect()}")
   handleMeterReport(cmd)
@@ -355,7 +377,7 @@ def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
 
   def result = []
   String value = (cmd.value ? "on" : "off")
-  result << createEvent(name: "switch", value: value, descriptionText: "$device.displayName was turned ${value}")
+  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
 
   result
 }
@@ -370,17 +392,15 @@ def zwaveEvent(hubitat.zwave.commands.hailv1.Hail cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
-
   def result = []
 
   // The temperature sensor only measures the internal temperature of product (Circuit board)
-  if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
-    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true)
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue}${cmd.scale ? "F" : "C"}" }
+  if (cmd.sensorType == 1) {
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
+    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
-
   result
 }
 

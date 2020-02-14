@@ -47,7 +47,6 @@ metadata {
       input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
     }
     section { // Configuration
-
       input name: "param1", title: "Input 1 (1)", description: "Switch type", type: "enum", options:[[0:"mono-stable (Push button)"],[1:"bi-stable (Toggle switch)"]], defaultValue: 1, required: true
       input name: "param4", title: "Input 1 (4)", description: "Contact type", type: "enum", options:[[0:"NO (Normally open)"],[1:"NC (Normally close)"]], defaultValue: 0, required: true
       input name: "param11", title: "Input 1 (11)", description: "Operation mode", type: "enum", options:[[0:"No change"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 1, required: true
@@ -139,7 +138,7 @@ def off() {
 def configure() {
   logger("debug", "configure()")
   def cmds = []
-  def results = []
+  def result = []
 
   schedule("0 0 12 */7 * ?", updateCheck)
 
@@ -152,6 +151,11 @@ def configure() {
   }
 
   cmds = cmds + cmdSequence([
+    zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:3, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:4, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:5, nodeId:zwaveHubNodeId),
     zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: param4.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 11, size: 1, scaledConfigurationValue: param11.toInteger()),
@@ -163,10 +167,8 @@ def configure() {
     zwave.configurationV1.configurationSet(parameterNumber: 13, size: 1, scaledConfigurationValue: param13.toInteger())
   ], 500)
 
-  results = results + response(cmds)
-  logger("debug", "configure() - results: ${results.inspect()}")
-
-  results
+  result = result + response(cmds)
+  result
 }
 
 def clearState() {
@@ -243,12 +245,25 @@ def parse(String description) {
   result
 }
 
+def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
+  logger("trace", "zwaveEvent(AssociationReport) - cmd: ${cmd.inspect()}")
+  def result = []
+
+  if (cmd.nodeId.any { it == zwaveHubNodeId }) {
+    logger("info", "Is associated in group ${cmd.groupingIdentifier}")
+  } else if (cmd.groupingIdentifier == 1) {
+    logger("info", "Associating in group ${cmd.groupingIdentifier}")
+    result << response(zwave.associationV2.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
+  }
+  result
+}
+
 def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
   logger("trace", "zwaveEvent(ConfigurationReport) - cmd: ${cmd.inspect()}")
 }
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
-  logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
+  logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd?.inspect()}")
   logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
 }
 
@@ -274,12 +289,12 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
   def result = []
 
-  //The temperature sensor only measures the internal temperature of product (Circuit board)
-  if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
-    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true)
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue}${cmd.scale ? "F" : "C"}" }
+  if (cmd.sensorType == 1) {
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
+    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
+  } else {
+    logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
-
   result
 }
 
@@ -395,7 +410,7 @@ private setLevelEvent(hubitat.zwave.Command cmd) {
   String value = (cmd.value ? "on" : "off")
   Map mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",99:"Comfort", 100:"Comfort"]
 
-  result << createEvent(name: "switch", value: value, descriptionText: "$device.displayName was turned $value")
+  result << createEvent(name: "switch", value: value, descriptionText: "Was turned $value")
   result << createEvent(name: "level", value: cmd.value == 99 ? 100 : cmd.value , unit: "%")
   result << createEvent(name: "mode", value: mode_map[cmd.value?.toInteger()])
 

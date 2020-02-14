@@ -14,13 +14,13 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Fibaro Smoke Sensor", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.groovy") {
+  definition (name: "Fibaro Smoke Sensor", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.groovy") {
     capability "Actuator"
     capability "Sensor"
     capability "TamperAlert"
@@ -47,6 +47,7 @@ metadata {
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
     }
     section { // Configuration
+      input name: "batteryCheckInterval", title: "Device Battery Check Interval", description: "How aften (hours) should we check the battery level", type: "number", defaultValue: 24, required: true
       input name: "wakeUpInterval", title: "Device Wake Up Interval", description: "", type: "enum", options:[[1:"1h"], [2:"2h"], [3:"3h"], [4:"4h"], [8:"8h"], [24:"12h"], [24: "24h"], [48: "48h"]], defaultValue: 1, required: true
       input name: "param1", title: "Smoke Sensor sensitivity", description: "", type: "enum", options:[[1:"High"],[2:"Medium"],[3:"Low"]], defaultValue: 2, required: true
       input name: "param2", title: "Z-Wave notifications", description: "Activate excess temperature and/or enclosure opening notifications sent to the main controller", type: "enum", options:[[0:"All notifications disabled"],[1:"Enclosure opening notification enabled"],[2:"Exceeding temperature threshold notification enabled"],[3:"All notifications enabled"]], defaultValue: 0, required: true
@@ -73,6 +74,7 @@ def installed() {
 
   if (state.driverInfo == null || state.driverInfo.isEmpty()) {
     state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo.configSynced = false
   }
 
   if (state.deviceInfo == null) {
@@ -102,6 +104,7 @@ def updated() {
 
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
+  state.deviceInfo.lastbatt = now()
   updateDataValue("MSR", "")
 }
 
@@ -110,7 +113,7 @@ def configure() {
   schedule("0 0 12 */7 * ?", updateCheck)
 
   logger("info", "Device configurations will be synchronized on the next device wakeUp")
-  state.deviceConfigSynced = false
+  state.driverInfo.configSynced = false
 }
 
 def clearState() {
@@ -212,31 +215,35 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   def result = []
 
   cmds = cmds + cmdSequence([
-    zwave.batteryV1.batteryGet(),
     zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0)
   ], 1000)
 
   // Only send config if not synced
-  if (!state?.deviceConfigSynced) {
+  if (!state?.driverInfo?.configSynced) {
     logger("info", "Synchronizing device config")
 
     cmds = cmds + cmdSequence([
-        zwave.wakeUpV1.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 3600, nodeid:zwaveHubNodeId),
-        zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: param2.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: param3.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: param4.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 10, size: 1, scaledConfigurationValue: param10.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 11, size: 2, scaledConfigurationValue: param11.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 12, size: 2, scaledConfigurationValue: param12.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 13, size: 1, scaledConfigurationValue: param13.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 20, size: 2, scaledConfigurationValue: param20.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 21, size: 1, scaledConfigurationValue: param21.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 30, size: 1, scaledConfigurationValue: param30.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 31, size: 2, scaledConfigurationValue: param31.toInteger()),
-        zwave.configurationV1.configurationSet(parameterNumber: 32, size: 2, scaledConfigurationValue: param32.toInteger())
+      zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
+      zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId),
+      zwave.associationV2.associationSet(groupingIdentifier:3, nodeId:zwaveHubNodeId),
+      zwave.associationV2.associationSet(groupingIdentifier:4, nodeId:zwaveHubNodeId),
+      zwave.associationV2.associationSet(groupingIdentifier:5, nodeId:zwaveHubNodeId),
+      zwave.wakeUpV2.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 3600, nodeid:zwaveHubNodeId),
+      zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: param2.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: param3.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: param4.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 10, size: 1, scaledConfigurationValue: param10.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 11, size: 2, scaledConfigurationValue: param11.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 12, size: 2, scaledConfigurationValue: param12.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 13, size: 1, scaledConfigurationValue: param13.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 20, size: 2, scaledConfigurationValue: param20.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 21, size: 1, scaledConfigurationValue: param21.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 30, size: 1, scaledConfigurationValue: param30.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 31, size: 2, scaledConfigurationValue: param31.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 32, size: 2, scaledConfigurationValue: param32.toInteger())
     ], 500)
-    state?.deviceConfigSynced = true
+    state.driverInfo.configSynced = false
   }
 
   // Refresh if MSR is not set
@@ -251,7 +258,12 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
     ], 100)
   }
 
-  cmds = cmds + cmdSequence([zwave.wakeUpV1.wakeUpNoMoreInformation()], 500)
+  // Check battery level only once every Xh
+  if (!state?.deviceInfo?.lastbatt || now() - state.deviceInfo.lastbatt >= batteryCheckInterval?.toInteger() *60*60*1000) {
+    cmds = cmds + cmdSequence([zwave.batteryV1.batteryGet()], 100)
+  }
+
+  cmds = cmds + cmdSequence([zwave.wakeUpV2.wakeUpNoMoreInformation()], 500)
   result = result + response(cmds)
 
   result
@@ -262,10 +274,10 @@ def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
   def result = []
 
   if (cmd.nodeId.any { it == zwaveHubNodeId }) {
-    logger("info", "$device.displayName is associated in group ${cmd.groupingIdentifier}")
+    logger("info", "Is associated in group ${cmd.groupingIdentifier}")
   } else if (cmd.groupingIdentifier == 1) {
-    logger("info", "Associating $device.displayName in group ${cmd.groupingIdentifier}")
-    result << response(zwave.associationV1.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
+    logger("info", "Associating in group ${cmd.groupingIdentifier}")
+    result << response(zwave.associationV2.associationSet(groupingIdentifier:cmd.groupingIdentifier, nodeId:zwaveHubNodeId))
   }
   result
 }
@@ -304,11 +316,11 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
     switch (cmd.event) {
       case 0:
         logger("info", "Tamper cleared")
-        result << createEvent(name: "tamper", value: "clear", descriptionText: "${device.displayName} tamper cleared", displayed: true)
+        result << createEvent(name: "tamper", value: "clear", descriptionText: "Tamper cleared", displayed: true)
       break
       case 3:
         logger("warn", "Tamper detected")
-        result << createEvent(name: "tamper", value: "detected", descriptionText: "${device.displayName} tamper detected", displayed: true)
+        result << createEvent(name: "tamper", value: "detected", descriptionText: "Tamper detected", displayed: true)
       break
     }
 
@@ -356,12 +368,12 @@ def zwaveEvent(hubitat.zwave.commands.sensoralarmv1.SensorAlarmReport cmd) {
     case 1:
       map.name = "smoke"
       map.value = cmd.sensorState == 0xFF ? "detected" : "clear"
-      map.descriptionText = cmd.sensorState == 0xFF ? "$device.displayName detected smoke" : "$device.displayName is clear (no smoke)"
+      map.descriptionText = cmd.sensorState == 0xFF ? "Detected smoke" : "Smoke is clear (no smoke)"
     break
     case 4:
       map.name = "heatAlarm"
       map.value = cmd.sensorState == 0xFF ? "overheat" : "inactive"
-      map.descriptionText = cmd.sensorState == 0xFF ? "$device.displayName overheat detected" : "$device.displayName heat alarm cleared (no overheat)"
+      map.descriptionText = cmd.sensorState == 0xFF ? "Overheat detected" : "Heat alarm cleared (no overheat)"
     break
   }
 
@@ -372,13 +384,12 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
   def result = []
 
-  if (cmd.sensorType == hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport.SENSOR_TYPE_TEMPERATURE_VERSION_1) {
-    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "F" : "C", displayed: true )
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue}${cmd.scale ? "F" : "C"}" }
+  if (cmd.sensorType == 1) {
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
+    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
-
   result
 }
 
@@ -388,16 +399,17 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
 
   if (cmd.batteryLevel == 0xFF) {
     map.value = 1
-    map.descriptionText = "${device.displayName} has a low battery"
+    map.descriptionText = "Has a low battery"
     map.isStateChange = true
     logger("warn", map.descriptionText)
 
   } else {
     map.value = cmd.batteryLevel
-    map.descriptionText = "${device.displayName} battery is ${cmd.batteryLevel}%"
+    map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
     logger("info", map.descriptionText)
   }
 
+  state.deviceInfo.lastbatt = now()
   createEvent(map)
 }
 
@@ -569,7 +581,7 @@ private logger(level, msg) {
 }
 
 public updateCheck() {
-  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.groovy"]
+  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.groovy"]
   asynchttpGet("updateCheckHandler", params)
 }
 

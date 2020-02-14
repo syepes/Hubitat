@@ -81,7 +81,8 @@ def refresh() {
 }
 
 def parse(String description) {
-  logger("debug", "parse() - description: ${description?.inspect()}")
+  logger("trace", "parse() - description: ${description?.inspect()}")
+  return []
 }
 
 def setHome(String homeID, String homeName) {
