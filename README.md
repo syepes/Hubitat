@@ -27,7 +27,7 @@ Netatmo    | [Weather - Smart Anemometer](https://www.netatmo.com/en-us/security
 Qubino     | [Flush Pilot Wire](https://cdn.shopify.com/s/files/1/0066/8149/3559/files/qubino-flush-pilot-wire-plus-user-manual-v1-1-eng.pdf) | ZMNHJD1(Working)
 Schwaiger  | [Thermostat - Temperature Sensor](http://www.schwaiger.de/en/temperature-sensor.html) | ZHD01(Working)
 Sonoff     | [RF Bridge 433.9MHz](https://sonoff.tech/product/accessories/433-rf-bridge) | R2 V1.0 Tasmota + Portisch (Working)
-Zipato     | [Mini RFID Keypad](https://www.zipato.com/product/mini-keypad-rfid) | WT-RFID(WIP)
+Zipato     | [Mini RFID Keypad](https://www.zipato.com/product/mini-keypad-rfid) | ZHD01(Working)
 
 
 ## Development and Contributions

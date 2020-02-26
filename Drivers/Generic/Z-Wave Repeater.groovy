@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -121,6 +121,7 @@ def clearState() {
   } else {
     state.deviceInfo.clear()
   }
+  installed()
 }
 
 def devicePoll() {
@@ -242,23 +243,28 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd)
     logger("warn", "TIMEOUT - Received ${cmd.testFrameCount} out of 30 frames")
     unschedule(commTestResults)
   }
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
   logger("trace", "zwaveEvent(ConfigurationReport) - cmd: ${cmd.inspect()}")
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
   logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.associationgrpinfov1.AssociationGroupNameReport cmd) {
   logger("trace", "zwaveEvent(AssociationGroupNameReport) - cmd: ${cmd.inspect()}")
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
   logger("trace", "zwaveEvent(AssociationReport) - cmd: ${cmd.inspect()}")
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
@@ -267,6 +273,7 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
   def power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
   logger("debug", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
   deviceUpdate()
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
@@ -279,6 +286,7 @@ def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
   state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
 
   updateDataValue("firmware", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
@@ -288,6 +296,7 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.DeviceSpecificRepor
   state.deviceInfo['deviceIdDataFormat'] = "${cmd.deviceIdDataFormat}"
   state.deviceInfo['deviceIdDataLengthIndicator'] = "l${cmd.deviceIdDataLengthIndicator}"
   state.deviceInfo['deviceIdType'] = "${cmd.deviceIdType}"
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
@@ -301,6 +310,7 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", cmd.manufacturerName)
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
@@ -308,6 +318,7 @@ def zwaveEvent(hubitat.zwave.commands.firmwareupdatemdv2.FirmwareMdReport cmd) {
 
   state.deviceInfo['firmwareChecksum'] = "${cmd.checksum}"
   state.deviceInfo['firmwareId'] = "${cmd.firmwareId}"
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
@@ -318,9 +329,9 @@ def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cm
   if (encapsulatedCommand) {
     logger("trace", "zwaveEvent(SecurityMessageEncapsulation) - encapsulatedCommand: ${encapsulatedCommand}")
     zwaveEvent(encapsulatedCommand)
-
   } else {
     logger("warn", "zwaveEvent(SecurityMessageEncapsulation) - Unable to extract Secure command from: ${cmd.inspect()}")
+    []
   }
 }
 
@@ -333,6 +344,7 @@ def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
     zwaveEvent(encapsulatedCommand)
   } else {
     logger("warn", "zwaveEvent(Crc16Encap) - Unable to extract CRC16 command from: ${cmd.inspect()}")
+    []
   }
 }
 
@@ -345,23 +357,26 @@ def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
     zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
   } else {
     logger("warn", "zwaveEvent(MultiChannelCmdEncap) - Unable to extract MultiChannel command from: ${cmd.inspect()}")
+    []
   }
 }
 
 def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
   logger("trace", "zwaveEvent(SecurityCommandsSupportedReport) - cmd: ${cmd.inspect()}")
   setSecured()
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.securityv1.NetworkKeyVerify cmd) {
   logger("trace", "zwaveEvent(NetworkKeyVerify) - cmd: ${cmd.inspect()}")
   logger("info", "Secure inclusion was successful")
   setSecured()
+  []
 }
 
 def zwaveEvent(hubitat.zwave.Command cmd) {
   logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
-  [:]
+  []
 }
 
 private cmd(hubitat.zwave.Command cmd) {
@@ -419,7 +434,7 @@ private logger(level, msg) {
 }
 
 def updateCheck() {
-  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Generic/Z-Wave%20Repeater.groovy"]
+  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Generic/Z-Wave%20Repeater.groovy"]
   asynchttpGet("updateCheckHandler", params)
 }
 
