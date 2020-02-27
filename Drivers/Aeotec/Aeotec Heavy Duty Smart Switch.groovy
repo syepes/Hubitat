@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -377,6 +377,16 @@ def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
+
+  def result = []
+  String value = (cmd.value ? "on" : "off")
+  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
+
+  result
+}
+
+def zwaveEvent(hubitat.zwave.commands.basicv1.BasicSet cmd) {
+  logger("trace", "zwaveEvent(BasicSet) - cmd: ${cmd.inspect()}")
 
   def result = []
   String value = (cmd.value ? "on" : "off")
