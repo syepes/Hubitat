@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -54,6 +54,8 @@ metadata {
         input name: "param48", title: "Sensor reports", description: "What types of reports should the sensor trigger", type: "enum", options:[[0:"Disable"], [55:"All"], [1:"Notification Report for Water Leak event"], [2:"Notification Report for Vibration event"], [4:"Configuration Report for Tilt sensor"], [16:"Notification Report for Under heat alarm"], [32:"Notification Report for Overheat alarm"]], defaultValue: 55, required: true
         input name: "param39", title: "Report Low battery threshold", description: "When the current battery level is lower than this value, it will send out the low battery alarm", type: "number", range: "10..50", defaultValue: 10, required: true
         input name: "param64", title: "Report Temperature unit", description: "Default unit of the automatic temperature report", type: "enum", options:[[0:"Celsius"], [1:"Fahrenheit"]], defaultValue: 0, required: true
+        input name: "param88", title: "Probe 1 Value", description: "Basic Set will be sent to the associated nodes in association Group 3 when the Sensor probe 1 is triggered", type: "enum", options:[[0:"Send nothing"], [1:"Presence of water: 0xFF, Absence of water: 0x00"], [2:"Presence of water:0x00, Absence of water: 0xFF"]], defaultValue: 0, required: true
+        input name: "param89", title: "Probe 2 Value", description: "Basic Set will be sent to the associated nodes in association Group 4 when the Sensor probe 2 is triggered", type: "enum", options:[[0:"Send nothing"], [1:"Presence of water: 0xFF, Absence of water: 0x00"], [2:"Presence of water:0x00, Absence of water: 0xFF"]], defaultValue: 0, required: true
         input name: "param94", title: "Report Power source", description: "To set which power source level is reported via the Battery CC", type: "enum", options:[[0:"USB power"], [1:"CR123A battery"]], defaultValue: 1, required: true
         input name: "param101", title: "Report unsolicited Lifeline", description: "To set what unsolicited report would be sent to the Lifeline group", type: "enum", options:[[0:"Send Nothing"], [1:"Battery Report is enabled"], [2:"Multilevel sensor report for temperature is enabled"], [3:"Battery Report and Multilevel sensor report for temperature are enabled"]], defaultValue: 3, required: true
         input name: "param111", title: "Report interval group #1", description: "Time interval for sending reports. Note: 1. The unit of interval time is second if USB power. 2. If battery power, the minimum interval time is equal to Wake Up interval set by the Wake Up CC", type: "enum", options:[[10:"10s"], [20:"20s"], [30:"30s"], [60:"1m"], [120:"2m"], [180:"3m"], [240:"4m"], [300:"5m"], [480:"8m"], [600:"10m"], [900:"15m"], [1800: "30m"], [3600: "1h"], [7200: "2h"]], defaultValue: 1800, required: true
@@ -193,6 +195,10 @@ def zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) {
   return result
 }
 
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalGet cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalGet) - cmd: ${cmd.inspect()}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("trace", "zwaveEvent(WakeUpNotification) - cmd: ${cmd.inspect()}")
   logger("info", "Device woke up")
@@ -209,6 +215,8 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
     cmds = cmds + cmdSequence([
       zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
       zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId),
+      zwave.associationV2.associationSet(groupingIdentifier:3, nodeId:zwaveHubNodeId),
+      zwave.associationV2.associationSet(groupingIdentifier:4, nodeId:zwaveHubNodeId),
       zwave.wakeUpV2.wakeUpIntervalSet(seconds:wakeUpInterval.toInteger() * 60, nodeid:zwaveHubNodeId),
       zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: param2.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 8, size: 1, scaledConfigurationValue: param8.toInteger()),
@@ -218,6 +226,8 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
       zwave.configurationV1.configurationSet(parameterNumber: 64, size: 1, scaledConfigurationValue: param64.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 86, size: 1, scaledConfigurationValue: param86.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 87, size: 1, scaledConfigurationValue: param87.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 88, size: 1, scaledConfigurationValue: param88.toInteger()),
+      zwave.configurationV1.configurationSet(parameterNumber: 89, size: 1, scaledConfigurationValue: param89.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 94, size: 1, scaledConfigurationValue: param94.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 101, size: 1, scaledConfigurationValue: param101.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: param111.toInteger()),

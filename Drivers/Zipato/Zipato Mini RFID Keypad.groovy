@@ -14,7 +14,7 @@
 import hubitat.zwave.commands.usercodev1.*
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -545,6 +545,7 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   state.deviceInfo['productTypeId'] = "${cmd.productTypeId}"
 
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+  updateDataValue("MSR", msr)
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", cmd.manufacturerName)
   []

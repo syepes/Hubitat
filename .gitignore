@@ -2,5 +2,6 @@ logs/
 temp/
 data/
 .vscode/
+.creds/
 *~
 *.swp
