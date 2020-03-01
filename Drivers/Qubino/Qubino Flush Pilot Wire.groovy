@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -33,6 +33,7 @@ metadata {
 
     command "clearState"
     command "pilotMode", [[name:"mode",type:"ENUM", description:"Pilot mode", constraints: ["Stop","Anti Freeze","Eco","Comfort-2","Comfort-1","Comfort"]]]
+    command "onTimer", [[name:"duration",type:"ENUM", description:"Pilot mode", constraints: ["5m","10m","15m","30m","1h","2h","3h","4h","5h","6h","7h","8h"]]]
     attribute "mode", "enum", ["Stop","Anti Freeze","Eco","Comfort-2","Comfort-1","Comfort"]
 
     fingerprint mfr: "0159", prod: "0004", model: "0001", deviceJoinName: "Qubino Flush Pilot Wire" // ZMNHJA2
@@ -135,6 +136,31 @@ def off() {
   ], 2000)
 }
 
+def onTimer(String duration) {
+  logger("debug", "onTimer(${duration})")
+
+  // Validate modes
+  Integer duration_value = null
+  Map duration_map = [300:"5m", 600:"10m", 900:"15m", 1800:"30m", 3600:"1h", 7200:"2h", 10800:"3h", 14400:"4h", 18000:"5h", 21600:"6h", 25200:"7h", 28800:"8h"]
+  duration_map.each { it->
+    if (it.value == duration) { duration_value = it.key }
+  }
+
+  if (duration_value == null) {
+    logger("error", "onTimer(${duration}) - Time value is incorrect")
+  } else {
+    logger("info", "onTimer(${duration}) - Pilot turned on for ${duration} (${duration_value})")
+    if(logDescText) { log.info "Pilot turned on for ${duration} (${duration_value})" }
+
+    startTimer(duration_value, off)
+
+    cmdSequence([
+      zwave.basicV1.basicSet(value: 0xFF),
+      zwave.basicV1.basicGet()
+    ], 2000)
+  }
+}
+
 def configure() {
   logger("debug", "configure()")
   def cmds = []
@@ -198,7 +224,7 @@ def checkState() {
   ], 200)
 }
 
-def setLevel(value) {
+def setLevel(BigDecimal value) {
   logger("debug", "setLevel(${value})")
   Integer level = Math.max(Math.min(value.toInteger(), 99), 0)
   cmdSequence([
@@ -207,7 +233,7 @@ def setLevel(value) {
   ])
 }
 
-def setLevel(value, duration) {
+def setLevel(BigDecimal value, duration) {
   logger("debug", "setLevel(${value}, ${duration})")
   setLevel(value)
 }
@@ -221,7 +247,7 @@ def pilotMode(mode="Stop") {
   }
 
   if (mode_value == null) {
-    logger("error", "3(${mode}) - Pilot Mode is incorrect")
+    logger("error", "pilotMode(${mode}) - Pilot Mode is incorrect")
   } else {
     logger("info", "pilotMode(${mode}) - Pilot Mode value = ${mode_value}")
     if(logDescText) { log.info "Pilot Mode set to ${mode} (${mode_value})" }
@@ -272,6 +298,7 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
+  if(logDescText) { log.info "Was turned ${cmd.value ? "on" : "off"}" }
   setLevelEvent(cmd)
 }
 
@@ -282,6 +309,7 @@ def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SwitchMultilevelReport) - cmd: ${cmd.inspect()}")
+  if(logDescText) { log.info "Was turned ${cmd.value ? "on" : "off"}" }
   setLevelEvent(cmd)
 }
 
@@ -472,6 +500,12 @@ private getCommandClassVersions() {
           0x59: 1, // COMMAND_CLASS_ASSOCIATION_GRP_INFO (Secure)
           0x70: 2  // COMMAND_CLASS_CONFIGURATION_V2 (Secure)
   ]
+}
+
+private startTimer(Integer seconds, function) {
+  def now = new Date()
+  def runTime = new Date(now.getTime() + (seconds * 1000))
+  runOnce(runTime, function)
 }
 
 /**

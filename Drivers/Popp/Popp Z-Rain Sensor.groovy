@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -34,8 +34,8 @@ metadata {
     attribute "rainRate", "number"
     attribute "rainTotal", "number"
 
-    attribute "rain", "bool"
-    attribute "rainHeavy", "bool"
+    attribute "rain", "enum", ["true","false"]
+    attribute "rainHeavy", "enum", ["true","false"]
 
     fingerprint mfr:"0154", prod:"0004"
     fingerprint deviceId: "17", inClusters: "0x5E, 0x31, 0x70, 0x85, 0x80, 0x84, 0x32, 0x7A, 0x5A, 0x59, 0x73, 0x86, 0x72"
@@ -266,8 +266,8 @@ def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
 def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
   logger("trace", "zwaveEvent(MeterReport) - cmd: ${cmd.inspect()}")
   def result = []
-  def meterTypes = ["Unknown", "Electric", "Gas", "Water"]
-  def waterUnits = ["m^3", "ft^3", "gal"]
+  List meterTypes = ["Unknown", "Electric", "Gas", "Water"]
+  List waterUnits = ["m^3", "ft^3", "gal"]
 
   if (cmd.meterType == 3) { // water
     logger("debug", "zwaveEvent(MeterReport) - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${waterUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
@@ -285,8 +285,8 @@ def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
   def cmds = []
+  Map map = [sensorType: cmd.sensorType, scale: cmd.scale, displayed: true]
 
-  def map = [sensorType: cmd.sensorType, scale: cmd.scale, displayed: true]
   switch (cmd.sensorType) {
     case 2: // General Purpose (V1)
       map.name = "rainTotal"
