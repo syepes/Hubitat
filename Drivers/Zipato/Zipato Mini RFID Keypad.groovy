@@ -545,7 +545,7 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   state.deviceInfo['productTypeId'] = "${cmd.productTypeId}"
 
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
-  updateDataValue("MSR", msr)
+  updateDataValue("MSR", '') // Sync Bug
   updateDataValue("MSR", msr)
   updateDataValue("manufacturer", cmd.manufacturerName)
   []

@@ -3,5 +3,6 @@ temp/
 data/
 .vscode/
 .creds/
+.env
 *~
 *.swp
