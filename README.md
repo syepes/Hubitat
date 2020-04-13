@@ -27,7 +27,7 @@ Netatmo       | [Weather - Smart Anemometer](https://www.netatmo.com/en-us/secur
 Qubino        | [Flush Pilot Wire](https://cdn.shopify.com/s/files/1/0066/8149/3559/files/qubino-flush-pilot-wire-plus-user-manual-v1-1-eng.pdf) | ZMNHJD1(Working)
 Schwaiger     | [Thermostat - Temperature Sensor](http://www.schwaiger.de/en/temperature-sensor.html) | ZHD01(Working)
 Sonoff        | [RF Bridge 433.9MHz](https://sonoff.tech/product/accessories/433-rf-bridge) | R2 V1.0 Tasmota + Portisch (Working)
-Xiaomi Mijia  | BLE Temperature and Humidity Sensor | [v1](https://www.amazon.com/FOONEE-Hygrometer-Thermometer-Temperature-Screen-Remote/dp/B07HQJGF53) & [v2](https://www.amazon.com/gooplayer-Bluetooth-Thermometer-Wireless-Hygrometer/dp/B08619Y2QR) (Working with external dependency)
+Xiaomi Mijia  | BLE Temperature and Humidity Sensor | [v1](https://www.amazon.com/FOONEE-Hygrometer-Thermometer-Temperature-Screen-Remote/dp/B07HQJGF53) & [v2](https://www.amazon.com/gooplayer-Bluetooth-Thermometer-Wireless-Hygrometer/dp/B08619Y2QR)  (Working with [external dependency](https://github.com/syepes/Hubitat/tree/master/Drivers/Xiaomi/Xiaomi%20Mijia%20DataCollector/))
 Zipato        | [Mini RFID Keypad](https://www.zipato.com/product/mini-keypad-rfid) | ZHD01(Working)
 
 
