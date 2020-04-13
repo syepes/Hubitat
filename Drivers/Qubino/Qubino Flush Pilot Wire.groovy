@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -296,7 +296,11 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
   []
 }
 
-def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
+def zwaveEvent(hubitat.zwave.commands.switchallv1.SwitchAllReport cmd) {
+  logger("trace", "zwaveEvent(SwitchAllReport) - cmd: ${cmd.inspect()}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd, Integer endPoint=null) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
   if(logDescText) { log.info "Was turned ${cmd.value ? "on" : "off"}" }
   setLevelEvent(cmd)
@@ -313,7 +317,7 @@ def zwaveEvent(hubitat.zwave.commands.switchmultilevelv3.SwitchMultilevelReport 
   setLevelEvent(cmd)
 }
 
-def zwaveEvent(hubitat.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
+def zwaveEvent(hubitat.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, Integer endPoint=null) {
   logger("trace", "zwaveEvent(SensorBinaryReport) - cmd: ${cmd.inspect()}")
   []
 }
