@@ -21,7 +21,6 @@ except ImportError:
 
 # Get Measurements from v1 and v2 devices
 def get_measurements(address, device):
-    data = {}
     version = int(device['ver'])
 
     if 1 == version:
@@ -30,7 +29,7 @@ def get_measurements(address, device):
         poller = MijiaV2Poller(address, BACKEND)
     else:
         print("Unsupported Mijia sensor version\n")
-        return
+        return ''
 
     loop = 0
     try:
@@ -53,8 +52,9 @@ def get_measurements(address, device):
 
     if temp == "Not set":
         # print("Error reading value\n")
-        return data
+        return ''
 
+    data = {}
     data['type'] = device['type']
     data['location'] = device['location']
     data['label'] = device['label']
@@ -84,7 +84,7 @@ he_url = 'http://HUBITAT-IP:39501'
 for k, v in sensor_list.items():
     try:
         data = get_measurements(k, v)
-        if len(data.keys()) > 0:
+        if data != '':
             # print("json: ", data)
             rc = send_data(he_url, data)
             print("Name: %s (%s), status_code: %s" % (k, v['label'], rc.status_code))
