@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.0.4"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -241,7 +241,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
       zwave.configurationV1.configurationSet(parameterNumber: 31, size: 2, scaledConfigurationValue: param31.toInteger()),
       zwave.configurationV1.configurationSet(parameterNumber: 32, size: 2, scaledConfigurationValue: param32.toInteger())
     ], 500)
-    state.driverInfo.configSynced = false
+    state.driverInfo.configSynced = true
   }
 
   // Refresh if MSR is not set

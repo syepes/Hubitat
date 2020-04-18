@@ -224,7 +224,7 @@ private def childClose(String value) {
 
     def cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-')
+        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("windowShade")
             logger("info", "childClose(${value}) - Shade: ${cv} -> closing")
@@ -258,7 +258,7 @@ private def childOpen(String value) {
 
     def cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-')
+        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("windowShade")
             logger("info", "childOpen(${value}) - Shade: ${cv} -> opening")
@@ -292,7 +292,7 @@ private def childStop(String value) {
 
     def cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-')
+        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("windowShade")
             logger("info", "childStop(${value}) - Shade: ${cv} -> stopping")
@@ -331,7 +331,7 @@ private def childOn(String value) {
 
     def cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-')
+        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("switch")
             logger("info", "childOn(${value}) - switch: ${cv} -> off")
@@ -364,7 +364,7 @@ private def childOff(String value) {
 
     def cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-')
+        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("switch")
             logger("info", "childOff(${value}) - switch: ${cv} -> on")
