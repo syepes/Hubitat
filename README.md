@@ -16,6 +16,7 @@ Aeotec        | [Water Sensor 6](https://aeotec.com/z-wave-water-sensor/) | ZW12
 Fibaro        | [Smoke Sensor](https://manuals.fibaro.com/smoke-sensor/) | FGSD-002(Working)
 Popp          | [Electric Strike Lock Control](https://www.popp.eu/products/actuators/strike-lock-control/) | 012501(Working)
 Popp          | [Z-Rain](https://www.popp.eu/z-rain/) | 700168(Working)
+Heatit        | [Z-Temp2](https://www.heatit.com/z-wave/heatit-z-temp-2/) | FW 1.01 (Working)
 Heltun        | [Touch Panel Switch](https://www.heltun.com/z-wave-touch-panel-switch) | TPS01-05(WIP)
 Netatmo       | [Security - Smart Outdoor Camera](https://www.netatmo.com/en-us/security/cam-outdoor) | Working
 Netatmo       | [Security - Smart Indoor Camera](https://www.netatmo.com/en-us/security/cam-indoor) | Working

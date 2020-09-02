@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.0.4"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -131,6 +131,8 @@ def clearState() {
   } else {
     state.deviceInfo.clear()
   }
+
+  updateDataValue("MSR", "")
   installed()
 }
 
@@ -213,7 +215,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   def result = []
 
   cmds = cmds + cmdSequence([
-    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0)
+    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: (location.temperatureScale=="F"?1:0))
   ], 300)
 
   // Only send config if not synced
@@ -251,7 +253,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
     logger("info", "Refresing device info")
 
     cmds = cmds + cmdSequence([
-      zwave.versionV1.versionGet(),
+      zwave.versionV2.versionGet(),
       zwave.firmwareUpdateMdV2.firmwareMdGet(),
       zwave.manufacturerSpecificV1.manufacturerSpecificGet()
     ], 100)
@@ -376,16 +378,30 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
   []
 }
 
-def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
+void zwaveEvent(hubitat.zwave.commands.versionv2.VersionReport cmd) {
   logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
 
-  state.deviceInfo['applicationVersion'] = "${cmd.applicationVersion}"
-  state.deviceInfo['applicationSubVersion'] = "${cmd.applicationSubVersion}"
-  state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
-  state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
-  state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
+  Double firmware0Version = cmd.firmware0Version + (cmd.firmware0SubVersion / 100)
+  Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+  updateDataValue("firmware", "${firmware0Version}")
+  state.deviceInfo['firmwareVersion'] = firmware0Version
+  state.deviceInfo['protocolVersion'] = protocolVersion
+  state.deviceInfo['hardwareVersion'] = cmd.hardwareVersion
 
-  updateDataValue("firmware", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
+  if (cmd.firmwareTargets > 0) {
+    cmd.targetVersions.each { target ->
+      Double targetVersion = target.version + (target.subVersion / 100)
+      state.deviceInfo["firmware${target.target}Version"] = targetVersion
+    }
+  }
+  []
+}
+
+def zwaveEvent(hubitat.zwave.commands.versionv1.VersionCommandClassReport cmd) {
+  logger("trace", "zwaveEvent(VersionCommandClassReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['commandClassVersion'] = "${cmd.commandClassVersion}"
+  state.deviceInfo['requestedCommandClass'] = "${cmd.requestedCommandClass}"
   []
 }
 
@@ -403,13 +419,17 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   logger("trace", "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}")
 
   state.deviceInfo['manufacturerId'] = "${cmd.manufacturerId}"
-  state.deviceInfo['manufacturerName'] = "${cmd.manufacturerName}"
   state.deviceInfo['productId'] = "${cmd.productId}"
   state.deviceInfo['productTypeId'] = "${cmd.productTypeId}"
 
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
-  updateDataValue("manufacturer", cmd.manufacturerName)
+  if (cmd?.manufacturerName && cmd?.manufacturerName != "") {
+    updateDataValue("manufacturer", cmd.manufacturerName)
+    state.deviceInfo['manufacturerName'] = "${cmd.manufacturerName}"
+  } else if (cmd?.manufacturerId != "") {
+    updateDataValue("manufacturer", cmd?.manufacturerId?.toString())
+  }
   []
 }
 
@@ -492,13 +512,25 @@ private startTimer(Integer seconds, function) {
 }
 
 private cmd(hubitat.zwave.Command cmd) {
-  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()} S2: ${getDataValue("S2")}")
 
-  if (isSecured()) {
+  if (getDataValue("zwaveSecurePairingComplete") == "true" && getDataValue("S2") == null) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+  } else if (getDataValue("zwaveSecurePairingComplete") == "true") {
+    zwaveSecureEncap(cmd)
   } else {
     cmd.format()
   }
+}
+
+String secure(String cmd) {
+  logger("trace", "secure(String) - cmd: ${cmd.inspect()}")
+  return zwaveSecureEncap(cmd)
+}
+
+String secure(hubitat.zwave.Command cmd) {
+  logger("trace", "secure(Command) - cmd: ${cmd.inspect()}")
+  return zwaveSecureEncap(cmd)
 }
 
 private cmdSequence(Collection commands, Integer delayBetweenArgs=250) {
@@ -507,10 +539,10 @@ private cmdSequence(Collection commands, Integer delayBetweenArgs=250) {
 }
 
 private setSecured() {
-  updateDataValue("secured", "true")
+  updateDataValue("zwaveSecurePairingComplete", "true")
 }
 private isSecured() {
-  getDataValue("secured") == "true"
+  getDataValue("zwaveSecurePairingComplete") == "true"
 }
 
 private getCommandClassVersions() {

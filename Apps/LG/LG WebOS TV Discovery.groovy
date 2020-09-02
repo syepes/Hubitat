@@ -168,7 +168,7 @@ def addDevice() {
 
   def d = getChildDevice(dni)
   if(!d) {
-    addChildDevice("asj", "LG WebOS TV", dni, null, [name: "LG WebOS TV", isComponent: true, label: "LG WebOS TV - $ipAddress"])
+    addChildDevice("syepes", "LG WebOS TV", dni, null, [name: "LG WebOS TV", isComponent: true, label: "LG WebOS TV - $ipAddress"])
     d = getChildDevice(dni)
     d.updateSetting("televisionIp",[type:"text", value:ipAddress])
     d.updateSetting("televisionMac",[type:"text", value:macAddress])

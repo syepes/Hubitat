@@ -10,6 +10,21 @@ from btlewrap.base import BluetoothBackendException
 from mijia.mijia_v1_poller import MijiaV1Poller, MI_HUMIDITY, MI_TEMPERATURE, MI_BATTERY
 from mijia.mijia_v2_poller import MijiaV2Poller, MI_HUMIDITY, MI_TEMPERATURE, MI_BATTERY
 import requests
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Configuration des logs
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+file_handler = RotatingFileHandler('send_data.log', 'a', 1000000, 1)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+steam_handler = logging.StreamHandler()
+steam_handler.setLevel(logging.INFO)
+steam_handler.setFormatter(formatter)
+logger.addHandler(steam_handler)
 
 # Create virtual sensors in dummy hardware
 try:
@@ -28,7 +43,7 @@ def get_measurements(address, device):
     elif 2 == version:
         poller = MijiaV2Poller(address, BACKEND)
     else:
-        print("Unsupported Mijia sensor version\n")
+        logger.error("Unsupported Mijia sensor version")
         return ''
 
     loop = 0
@@ -38,7 +53,7 @@ def get_measurements(address, device):
         temp = "Not set"
 
     while loop < 2 and temp == "Not set":
-        print("Error reading value retry after 3 seconds...\n")
+        logger.warning('Error reading value retry after 3 seconds...')
         time.sleep(3)
         if 1 == version:
             poller = MijiaV1Poller(address)
@@ -84,9 +99,11 @@ he_url = 'http://HUBITAT-IP:39501'
 for k, v in sensor_list.items():
     try:
         data = get_measurements(k, v)
+        logger.debug("Name: %s (%s), data: %s" % (k, v['label'], data))
+
         if data != '':
-            # print("json: ", data)
             rc = send_data(he_url, data)
-            print("Name: %s (%s), status_code: %s" % (k, v['label'], rc.status_code))
+            logger.info("Name: %s (%s), status_code: %s" % (k, v['label'], rc.status_code))
+
     except:
-        print("Unexpected error: %s (%s) - %s" % (k, v['label'], sys.exc_info()[0]))
+        logger.error("Unexpected error: %s (%s) - %s" % (k, v['label'], sys.exc_info()[0]))

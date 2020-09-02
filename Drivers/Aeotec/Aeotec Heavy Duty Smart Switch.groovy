@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.0.4"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -52,20 +52,17 @@ metadata {
     }
     section { // Configuration
       input name: "switchAll", title: "Respond to switch all", description: "How does the switch respond to the 'Switch All' command", type: "enum", options:["Disabled", "Off Enabled", "On Enabled", "On And Off Enabled"], defaultValue: "On And Off Enabled", required: true
+      input name: "param20", title: "Default Load state", description: "Used for indicating the default state of output load after re-power on", type: "enum", options:[[0:"Last state after power on"],[1:"Always on after re-power on"],[2:"Always off stare after re-power on"]], defaultValue: 0, required: true
+      input name: "param3", title: "Current Overload Protection", description: "The means the load will be disconnected after 5 seconds when the current more than 39.5A", type: "enum", options:[[0:"Disabled"],[1:"Enabled"]], defaultValue: 1, required: true
+      input name: "param111", title: "Report interval", description: "", type: "enum", options:[[30:"30s"], [60:"1m"], [120:"2m"], [180:"3m"], [240:"4m"], [300:"5m"], [600:"10m"], [900:"15m"], [1800:"30m"], [3600:"1h"], [7200:"2h"], [10800:"3h"], [14400:"4h"], [21600:"6h"], [28800:"8h"], [32400:"9h"], [43200:"12h"], [86400:"24h"]], defaultValue: 300, required: true
+      input name: "param101_voltage", title: "Report Instantaneous Voltage", description: "", type: "bool", defaultValue: true, required: true
+      input name: "param101_current", title: "Report Instantaneous Current (Amperes)", description: "", type: "bool", defaultValue: true, required: true
+      input name: "param101_watts", title: "Report Instantaneous Watts", description: "", type: "bool", defaultValue: true, required: true
+      input name: "param101_currentUsage", title: "Report Accumulated kWh", description: "", type: "bool", defaultValue: true, required: true
       input name: "report_temp", title: "Report Temperature", description: "", type: "bool", defaultValue: false, required: true
-
-      input name: "param20", title: "Default Load state (20)", description: "Used for indicating the default state of output load after re-power on", type: "enum", options:[[0:"Last state after power on"],[1:"Always on after re-power on"],[2:"Always off stare after re-power on"]], defaultValue: 0, required: true
-      input name: "param111", title: "Report interval (111)", description: "Interval (seconds) between each report", type: "number", range: "0..268435456", defaultValue: 300, required: true
-
-      input name: "param101_voltage", title: "Report Instantaneous Voltage (101)", description: "", type: "bool", defaultValue: true, required: true
-      input name: "param101_current", title: "Report Instantaneous Current (Amperes) (101)", description: "", type: "bool", defaultValue: true, required: true
-      input name: "param101_watts", title: "Report Instantaneous Watts (101)", description: "", type: "bool", defaultValue: true, required: true
-      input name: "param101_currentUsage", title: "Report Accumulated kWh (101)", description: "", type: "bool", defaultValue: true, required: true
-
-      input name: "param80", title: "Load change notifications (80)", description: "Send notifications when the state of the load is changed", type: "enum", options:[[0:"Send Nothing (Disabled)"],[1:"Send HAIL Command"],[2:"Send BASIC Report Command"]], defaultValue: 0, required: true
-
-      input name: "param91", title: "Minimum change in wattage (91)", description: "Report when the change of the current power is more/less than the threshold in wattage", type: "number", range: "0..32767", defaultValue: 50, required: true
-      input name: "param92", title: "Minimum change in percentage (92)", description: "Report when the change of the current power is more/less than the threshold in percentage", type: "number", range: "0..100", defaultValue: 10, required: true
+      input name: "param80", title: "Load change notifications", description: "Send notifications when the state of the load is changed", type: "enum", options:[[0:"Send Nothing (Disabled)"],[1:"Send HAIL Command"],[2:"Send BASIC Report Command"]], defaultValue: 0, required: true
+      input name: "param91", title: "Minimum change in wattage", description: "Report when the change of the current power is more/less than the threshold in wattage", type: "number", range: "0..32767", defaultValue: 50, required: true
+      input name: "param92", title: "Minimum change in percentage", description: "Report when the change of the current power is more/less than the threshold in percentage", type: "number", range: "0..100", defaultValue: 10, required: true
     }
   }
 }
@@ -108,7 +105,7 @@ def poll() {
 
   cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
-    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0),
+    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: (location.temperatureScale=="F"?1:0)),
     zwave.basicV1.basicGet(),
     zwave.meterV4.meterGet(scale: 0), // energy kWh
     zwave.meterV4.meterGet(scale: 1), // energy kVAh
@@ -121,7 +118,7 @@ def poll() {
 def pollTemp() {
   logger("debug", "pollTemp()")
   // The temperature sensor only measures the internal temperature of product (Circuit board)
-  cmd(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0))
+  cmd(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: (location.temperatureScale=="F"?1:0)))
 }
 
 def refresh() {
@@ -129,10 +126,10 @@ def refresh() {
 
   cmdSequence([
     zwave.powerlevelV1.powerlevelGet(),
-    zwave.versionV1.versionGet(),
+    zwave.versionV2.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
     zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
-    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: 0),
+    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: (location.temperatureScale=="F"?1:0)),
     zwave.basicV1.basicGet(),
     zwave.meterV4.meterGet(scale: 0), // energy kWh
     zwave.meterV4.meterGet(scale: 1), // energy kVAh
@@ -145,13 +142,19 @@ def refresh() {
 def on() {
   logger("debug", "on()")
 
-  cmd(zwave.basicV1.basicSet(value: 0xFF))
+  cmdSequence([
+    zwave.basicV1.basicSet(value: 0xFF),
+    zwave.basicV1.basicGet()
+  ])
 }
 
 def off() {
   logger("debug", "off()")
 
-  cmd(zwave.basicV1.basicSet(value: 0x00))
+  cmdSequence([
+    zwave.basicV1.basicSet(value: 0x00),
+    zwave.basicV1.basicGet()
+  ])
 }
 
 def configure() {
@@ -192,14 +195,27 @@ def configure() {
     zwave.switchAllV1.switchAllSet(mode: switchAllMode),
     zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:zwaveHubNodeId),
     zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId),
+    zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: param3.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 20, size: 1, scaledConfigurationValue: param20.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: param111.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: reportGroup),
     zwave.configurationV1.configurationSet(parameterNumber: 80, size: 1, scaledConfigurationValue: param80.toInteger()),
     zwave.configurationV1.configurationSet(parameterNumber: 90, size: 1, scaledConfigurationValue: 1),
     zwave.configurationV1.configurationSet(parameterNumber: 91, size: 2, scaledConfigurationValue: param91.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 92, size: 1, scaledConfigurationValue: param92.toInteger())
+    zwave.configurationV1.configurationSet(parameterNumber: 92, size: 1, scaledConfigurationValue: param92.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: param111.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 112, size: 4, scaledConfigurationValue: 0),
+    zwave.configurationV1.configurationSet(parameterNumber: 113, size: 4, scaledConfigurationValue: 0),
+    zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: reportGroup),
+    zwave.configurationV1.configurationSet(parameterNumber: 102, size: 4, scaledConfigurationValue: 0),
+    zwave.configurationV1.configurationSet(parameterNumber: 103, size: 4, scaledConfigurationValue: 0)
   ], 500)
+
+  if (!getDataValue("MSR")) {
+    cmds = cmds + cmdSequence([
+      zwave.versionV3.versionGet(),
+      zwave.firmwareUpdateMdV5.firmwareMdGet(),
+      zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
+    ], 100)
+  }
 
   result = result + response(cmds)
   logger("debug", "configure() - result: ${result.inspect()}")
@@ -241,6 +257,8 @@ def clearState() {
   } else {
     state.deviceInfo.clear()
   }
+
+  updateDataValue("MSR", "")
   installed()
 }
 
@@ -283,7 +301,7 @@ def handleMeterReport(cmd){
   def previousValue = cmd.scaledPreviousMeterValue ?: 0
 
   if (cmd.meterType == 1) { // electric
-    logger("info", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${electricNames[cmd.scale]}(${cmd.scale}), unit: ${electricUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
+    logger("debug", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${electricNames[cmd.scale]}(${cmd.scale}), unit: ${electricUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
 
     def map = [ name: electricNames[cmd.scale] ?: "electric", unit: electricUnits[cmd.scale], displayed: true]
     switch(cmd.scale) {
@@ -380,6 +398,7 @@ def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
 
   def result = []
   String value = (cmd.value ? "on" : "off")
+  if(logDescText) { log.info "Was turned ${value}" }
   result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
 
   result
@@ -408,35 +427,59 @@ def zwaveEvent(hubitat.zwave.commands.hailv1.Hail cmd) {
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
   def result = []
+  Map map = [:]
 
-  // The temperature sensor only measures the internal temperature of product (Circuit board)
-  if (cmd.sensorType == 1) {
-    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
-  } else {
-    logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
+  switch (cmd.sensorType) {
+    case 1:
+      map.name = "temperature"
+      map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "f" : "c", cmd.precision)
+      map.unit = "\u00b0" + getTemperatureScale()
+      map.descriptionText = "Temperature is ${map.value} ${map.unit}"
+      map.displayed = true
+    break
+    default:
+      logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
+    break;
   }
+
+  if(map?.descriptionText) { logger("info", "${map.descriptionText}") }
+  if(logDescText && map?.descriptionText) { log.info "${map.descriptionText}" }
+  result << createEvent(map)
   result
 }
 
 def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
   logger("trace", "zwaveEvent(PowerlevelReport) - cmd: ${cmd.inspect()}")
 
-  String power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
+  String power = (cmd.powerLevel > 0) ? "-${cmd.powerLevel}dBm" : "NormalPower"
   logger("debug", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
   []
 }
 
-def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
+void zwaveEvent(hubitat.zwave.commands.versionv2.VersionReport cmd) {
   logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
 
-  state.deviceInfo['applicationVersion'] = "${cmd.applicationVersion}"
-  state.deviceInfo['applicationSubVersion'] = "${cmd.applicationSubVersion}"
-  state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
-  state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
-  state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
+  Double firmware0Version = cmd.firmware0Version + (cmd.firmware0SubVersion / 100)
+  Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+  updateDataValue("firmware", "${firmware0Version}")
+  state.deviceInfo['firmwareVersion'] = firmware0Version
+  state.deviceInfo['protocolVersion'] = protocolVersion
+  state.deviceInfo['hardwareVersion'] = cmd.hardwareVersion
 
-  updateDataValue("firmware", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
+  if (cmd.firmwareTargets > 0) {
+    cmd.targetVersions.each { target ->
+      Double targetVersion = target.version + (target.subVersion / 100)
+      state.deviceInfo["firmware${target.target}Version"] = targetVersion
+    }
+  }
+  []
+}
+
+def zwaveEvent(hubitat.zwave.commands.versionv1.VersionCommandClassReport cmd) {
+  logger("trace", "zwaveEvent(VersionCommandClassReport) - cmd: ${cmd.inspect()}")
+
+  state.deviceInfo['commandClassVersion'] = "${cmd.commandClassVersion}"
+  state.deviceInfo['requestedCommandClass'] = "${cmd.requestedCommandClass}"
   []
 }
 
@@ -454,13 +497,17 @@ def zwaveEvent(hubitat.zwave.commands.manufacturerspecificv2.ManufacturerSpecifi
   logger("trace", "zwaveEvent(ManufacturerSpecificReport) - cmd: ${cmd.inspect()}")
 
   state.deviceInfo['manufacturerId'] = "${cmd.manufacturerId}"
-  state.deviceInfo['manufacturerName'] = "${cmd.manufacturerName}"
   state.deviceInfo['productId'] = "${cmd.productId}"
   state.deviceInfo['productTypeId'] = "${cmd.productTypeId}"
 
   String msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
   updateDataValue("MSR", msr)
-  updateDataValue("manufacturer", cmd.manufacturerName)
+  if (cmd?.manufacturerName && cmd?.manufacturerName != "") {
+    updateDataValue("manufacturer", cmd.manufacturerName)
+    state.deviceInfo['manufacturerName'] = "${cmd.manufacturerName}"
+  } else if (cmd?.manufacturerId != "") {
+    updateDataValue("manufacturer", cmd?.manufacturerId?.toString())
+  }
   []
 }
 
@@ -531,13 +578,25 @@ def zwaveEvent(hubitat.zwave.Command cmd) {
 }
 
 private cmd(hubitat.zwave.Command cmd) {
-  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()}")
+  logger("trace", "cmd(Command) - cmd: ${cmd.inspect()} isSecured(): ${isSecured()} S2: ${getDataValue("S2")}")
 
-  if (isSecured()) {
+  if (getDataValue("zwaveSecurePairingComplete") == "true" && getDataValue("S2") == null) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+  } else if (getDataValue("zwaveSecurePairingComplete") == "true") {
+    zwaveSecureEncap(cmd)
   } else {
     cmd.format()
   }
+}
+
+String secure(String cmd) {
+  logger("trace", "secure(String) - cmd: ${cmd.inspect()}")
+  return zwaveSecureEncap(cmd)
+}
+
+String secure(hubitat.zwave.Command cmd) {
+  logger("trace", "secure(Command) - cmd: ${cmd.inspect()}")
+  return zwaveSecureEncap(cmd)
 }
 
 private cmdSequence(Collection commands, Integer delayBetweenArgs=250) {
@@ -546,10 +605,10 @@ private cmdSequence(Collection commands, Integer delayBetweenArgs=250) {
 }
 
 private setSecured() {
-  updateDataValue("secured", "true")
+  updateDataValue("zwaveSecurePairingComplete", "true")
 }
 private isSecured() {
-  getDataValue("secured") == "true"
+  getDataValue("zwaveSecurePairingComplete") == "true"
 }
 
 private getCommandClassVersions() {
@@ -564,7 +623,7 @@ private getCommandClassVersions() {
           0x59: 1, // COMMAND_CLASS_ASSOCIATION_GRP_INFO (Secure)
           0x56: 1, // COMMAND_CLASS_CRC_16_ENCAP
           0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
-          0x86: 1, // COMMAND_CLASS_VERSION (Insecure)
+          0x86: 2, // COMMAND_CLASS_VERSION (Insecure)
           0x7A: 2, // COMMAND_CLASS_FIRMWARE_UPDATE_MD (Insecure)
           0x73: 1, // COMMAND_CLASS_POWERLEVEL (Insecure)
           0x98: 1  // COMMAND_CLASS_SECURITY (Secure)
