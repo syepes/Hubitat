@@ -91,11 +91,12 @@ def send_data(url, payload):
 
 # List of devices and attributes
 sensor_list = {
-    '4C:65:A8:D4:CA:5C': {'label': 'Sensor - Interior - Temp - Bedroom - Main', 'location': 'Bedroom', 'type': 'Sensor Temperature Humidity', 'ver': 1},
+    '4C:65:A8:D4:CA:5C': {'label': 'Sensor - Interior - Temp - Bedroom - Main', 'location': 'Bedroom', 'type': 'Sensor Temperature Humidity', 'ver': 1}
 }
 
 # Set the Hubitat IP
 he_url = 'http://HUBITAT-IP:39501'
+
 for k, v in sensor_list.items():
     try:
         data = get_measurements(k, v)

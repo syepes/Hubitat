@@ -14,7 +14,7 @@
 import hubitat.zwave.commands.usercodev1.*
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -193,8 +193,11 @@ def clearState() {
 
 def on(){
   logger("debug", "on()")
-  if (logDescText) { log.info "Switching mode to Away (UI)" }
-
+  if (logDescText) {
+    log.info "${device.displayName} Switching mode to Away (UI)"
+  } else {
+    logger("info", "Switching mode to Away (UI)")
+  }
   sendEvent(name: "switch", value: "on", descriptionText: "Away by UI")
   sendEvent(name: "mode", value: "away", descriptionText: "Away by UI")
   sendEvent(name: "user", value: "UI", descriptionText: "Away by UI")
@@ -202,8 +205,11 @@ def on(){
 
 def off() {
   logger("debug", "off()")
-  if (logDescText) { log.info "Switching mode to Home (UI)" }
-
+  if (logDescText) {
+    log.info "${device.displayName} Switching mode to Home (UI)"
+  } else {
+    logger("info", "Switching mode to Home (UI)")
+  }
   sendEvent(name: "switch", value: "off", descriptionText: "Home by UI")
   sendEvent(name: "mode", value: "home", descriptionText: "Home by UI")
   sendEvent(name: "user", value: "UI", descriptionText: "Home by UI")
@@ -229,7 +235,11 @@ private def rfidOperationCommands() {
         String codeHex = code2Hex(state.configCode.code)
         BigInteger codeInt = new BigInteger(codeHex, 16)
         logger("debug", "rfidOperationCommands() - task: ${state.configCode.task}, slot: ${state.configCode.slot}, codeRaw: ${state.configCode.code}, codeHex: ${codeHex}, codeInt: ${codeInt}")
-        if (logDescText) { log.info "Registering slot: ${state.configCode.slot} with code: ${state.configCode.code}" }
+        if (logDescText) {
+          log.info "${device.displayName} Registering slot: ${state.configCode.slot} with code: ${state.configCode.code}"
+        } else {
+          logger("info", "Registering slot: ${state.configCode.slot} with code: ${state.configCode.code}")
+        }
 
         def cmdRaw = [  0x63, // User Code Command Class
                         0x01, // User Code Set Command
@@ -253,7 +263,11 @@ private def rfidOperationCommands() {
     case 'UnRegister':
       if(state.configSlots[Integer.toString(state.configCode.slot)] != null) {
         logger("debug", "rfidOperationCommands() - task: ${state.configCode.task}, slot: ${state.configCode.slot}")
-        if (logDescText) { log.info "UnRegistering slot: ${state.configCode.slot}" }
+        if (logDescText) {
+          log.info "${device.displayName} UnRegistering slot: ${state.configCode.slot}"
+        } else {
+          logger("info", "UnRegistering slot: ${state.configCode.slot}")
+        }
 
         cmds = cmds + cmdSequence([
           zwave.userCodeV1.userCodeSet(userIdentifier: state.configCode.slot.toInteger(), userIdStatus:UserCodeSet.USER_ID_STATUS_AVAILABLE_NOT_SET, userCode: 0),
@@ -351,8 +365,11 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
     switch (cmd.event) {
       case 5:
         // Recognised code or rfid pressed "Away"
-        logger("info", "zwaveEvent(AlarmReport) - Away mode set by ${rfidName}")
-        if (logDescText) { log.info "Away mode set by ${rfidName}" }
+        if (logDescText) {
+          log.info "${device.displayName} Away mode set by ${rfidName}"
+        } else {
+          logger("info", "Away mode set by ${rfidName}")
+        }
 
         if (param3.toInteger() == null || param3.toInteger() == 0) {
           result << createEvent(name: "switch", value: "on", descriptionText: "Away by ${rfidName}")
@@ -368,8 +385,11 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
       break
       case 6:
         // Recognised code or rfid pressed "Home"
-        logger("info", "zwaveEvent(AlarmReport) - Home mode set by ${rfidName}")
-        if (logDescText) { log.info "Home mode set by ${rfidName}" }
+        if (logDescText) {
+          log.info "${device.displayName} Home mode set by ${rfidName}"
+        } else {
+          logger("info", "Home mode set by ${rfidName}")
+        }
 
         result << createEvent(name: "switch", value: "off", descriptionText: "Home by ${rfidName}")
         result << createEvent(name: "mode", value: "home", descriptionText: "Home by ${rfidName}")
@@ -385,7 +405,11 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
   } else if (cmd.notificationType == 7) {
     switch (cmd.event) {
       case 3:
-        if (logDescText) { log.info "Tamper detected" }
+        if (logDescText) {
+          log.warn "${device.displayName} Tamper detected"
+        } else {
+          logger("warn", "Tamper detected")
+        }
         result << createEvent(name: "tamper", value: "detected", descriptionText: "Tamper detected", displayed: true)
         startTimer(30, clearTamper)
       break
@@ -494,16 +518,22 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
 
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   state.deviceInfo.lastbatt = now()
   createEvent(map)
+}
+
+def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
+  logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
+  logger("warn", "Has reset itself")
+  []
 }
 
 void zwaveEvent(hubitat.zwave.commands.versionv2.VersionReport cmd) {
@@ -627,6 +657,16 @@ def zwaveEvent(hubitat.zwave.commands.securityv1.NetworkKeyVerify cmd) {
   []
 }
 
+void zwaveEvent(hubitat.zwave.commands.supervisionv1.SupervisionGet cmd){
+  logger("trace", "zwaveEvent(SupervisionGet) - cmd: ${cmd.inspect()}")
+
+  hubitat.zwave.Command encapCmd = cmd.encapsulatedCommand(commandClassVersions)
+  if (encapCmd) {
+    zwaveEvent(encapCmd)
+  }
+  sendHubCommand(new hubitat.device.HubAction(secure(zwave.supervisionV1.supervisionReport(sessionID: cmd.sessionID, reserved: 0, moreStatusUpdates: false, status: 0xFF, duration: 0)), hubitat.device.Protocol.ZWAVE))
+}
+
 def zwaveEvent(hubitat.zwave.Command cmd) {
   logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
   []
@@ -670,7 +710,7 @@ private getCommandClassVersions() {
   return [0x85: 2, // COMMAND_CLASS_ASSOCIATION_V2 (Secure)
           0x80: 1, // COMMAND_CLASS_BATTERY
           0x84: 2, // COMMAND_CLASS_WAKE_UP_V2
-          0x86: 1, // COMMAND_CLASS_VERSION (Insecure)
+          0x86: 2, // COMMAND_CLASS_VERSION (Insecure)
           0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
           0x71: 3, // COMMAND_CLASS_ALARM (Secure)
           0x70: 2, // COMMAND_CLASS_CONFIGURATION_V2 (Secure)
@@ -736,7 +776,11 @@ def releaseButton() {
 }
 
 def clearTamper() {
-  if (logDescText) { log.info "Tamper cleared" }
+  if (logDescText) {
+    log.info "${device.displayName} Tamper cleared"
+  } else {
+    logger("info", "Tamper cleared")
+  }
   sendEvent(name: "tamper", value: "clear")
 }
 
@@ -758,7 +802,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

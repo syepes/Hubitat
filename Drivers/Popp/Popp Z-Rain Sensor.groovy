@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -160,7 +160,7 @@ def zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
-  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -234,29 +234,31 @@ def zwaveEvent(hubitat.zwave.commands.basicv1.BasicSet cmd) {
       map.name = "rain"
       map.value = true
       map.descriptionText = "It has started raining (Normal)"
-      if(logDescText) { log.info "${map.descriptionText}" }
     break
     case "${param3}":
       map.name = "rain"
       map.value = false
       map.descriptionText = "It has stopped raining (Normal)"
-      if(logDescText) { log.info "${map.descriptionText}" }
     break
     case "${param6}":
       map.name = "rainHeavy"
       map.value = true
       map.descriptionText = "It has started raining (Heavy)"
-      if(logDescText) { log.info "${map.descriptionText}" }
     break
     case "${param7}":
       map.name = "rainHeavy"
       map.value = false
       map.descriptionText = "It has stopped raining (Heavy)"
-      if(logDescText) { log.info "${map.descriptionText}" }
     break
     default:
       logger("warn", "zwaveEvent(BasicSet) - Unknown value: ${cmd?.value}")
     break;
+  }
+
+  if(logDescText && map?.descriptionText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else if(map?.descriptionText) {
+    logger("info", "${map.descriptionText}")
   }
 
   createEvent(map)
@@ -277,7 +279,11 @@ def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
     logger("debug", "zwaveEvent(MeterReport) - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${waterUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
     def map = [name: "rainMeter", value: cmd.scaledMeterValue, unit: waterUnits[cmd.scale], displayed: true]
     result << createEvent(map)
-    if(logDescText) { log.info "${meterTypes[cmd.meterType]} ${map.name} is ${map.value} ${map.unit}" }
+    if(logDescText) {
+      log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map.value} ${map.unit}"
+    } else {
+      logger("info", "${meterTypes[cmd.meterType]} ${map.name} is ${map.value} ${map.unit}")
+    }
 
   } else {
     logger("warn", "zwaveEvent(MeterReport) - Unknown meterType: ${cmd.meterType}")
@@ -297,18 +303,24 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
       map.unit = (cmd.scale == 1) ? "" : "%"
       map.precision = cmd.precision
       map.value = cmd.scaledSensorValue.toFloat() * cmd?.precision?.toInteger()
-      if(logDescText) { log.info "Water ${map.name} is ${map.value} ${map.unit}" }
+      map.descriptionText = "Water ${map.name} is ${map.value} ${map.unit}"
     break
     case 0xC: // 12 = Rain Rate (V2)
       map.name = "rainRate"
       map.unit = (cmd.scale == 1) ? "in/h" : "mm/h"
       map.precision = cmd.precision
       map.value = cmd.scaledSensorValue.toFloat() * cmd?.precision?.toInteger()
-      if(logDescText) { log.info "Water ${map.name} is ${map.value} ${map.unit}" }
+      map.descriptionText = "Water ${map.name} is ${map.value} ${map.unit}"
     break
     default:
       logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType: ${cmd.sensorType}")
     break;
+  }
+
+  if(logDescText && map?.descriptionText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else if(map?.descriptionText) {
+    logger("info", "${map.descriptionText}")
   }
 
   createEvent(map)
@@ -322,12 +334,12 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
 
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   state.deviceInfo.lastbatt = now()
@@ -539,7 +551,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

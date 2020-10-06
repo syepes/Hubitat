@@ -70,7 +70,7 @@ metadata {
       input name: "televisionIp", type: "text", title: "Television IP Address",  defaultValue: "",  required: true
       input name: "televisionMac", type: "text", title: "Television MAC Address", defaultValue: "",  required: true
       input name: "pairingKey", type: "text", title: "Pairing Key", required: true, defaultValue: ""
-      input name: "retryDelay", title: "Device Reconnect delay", type: "enum", options: [["5":"Retry every 5 seconds"], ["10":"Retry every 10 seconds"], ["15":"Retry every 15 seconds"], ["30":"Retry every 30 seconds"], ["45":"Retry every 45 seconds"], ["60":"Retry every minute"], ["120":"Retry every minute"], ["300":"Retry every 5 minutes"], ["600":"Retry every 10 minutes"]], defaultValue: 60
+      input name: "retryDelay", title: "Device Reconnect delay", type: "enum", options: [["5":"Retry every 5 seconds"], ["10":"Retry every 10 seconds"], ["15":"Retry every 15 seconds"], ["30":"Retry every 30 seconds"], ["45":"Retry every 45 seconds"], ["60":"Retry every minute"], ["120":"Retry 2 minute"], ["300":"Retry every 5 minutes"], ["600":"Retry every 10 minutes"]], defaultValue: 60
     }
   }
 }
@@ -278,7 +278,7 @@ def sendJson(String json) {
 def powerEvent(String onOrOff, String type = "digital") {
   logger("debug", "powerEvent() - onOrOff: ${onOrOff}, type: ${type}")
 
-  def descriptionText = "${device.displayName} is ${onOrOff}"
+  def descriptionText = "is ${onOrOff}"
   if (state.power != onOrOff){
     logger("info", "powerEvent() - ${descriptionText} [$type]")
   }
@@ -504,7 +504,7 @@ def getServiceList() {
 
 def handler_audio_getStatus(data) {
     logger("debug", "handler_audio_getStatus() - data: ${data?.inspect()}")
-    def descriptionText = "${device.displayName} volume is ${data.volume}"
+    def descriptionText = "volume is ${data.volume}"
 
     logger("info", "${descriptionText}")
     sendEvent(name: "volume", value: data.volume, descriptionText: descriptionText)
@@ -528,7 +528,7 @@ def handler_getForegroundAppInfo(data) {
     if (appId == id) niceName = name
   }
 
-  def descriptionText = "${device.displayName} channelName is ${niceName}"
+  def descriptionText = "channelName is ${niceName}"
   logger("info", "${descriptionText}")
 
   sendEvent(name: "channelName", value: niceName, descriptionText: descriptionText)
@@ -573,11 +573,11 @@ def handler_getChannelProgramInfo(data) {
   state.lastChannel = lastChannel
   sendEvent(name: "channelDesc", value: lastChannel.description)
   // This is defined as a number, not a decimal so send the major number
-  def descriptionText = "${device.displayName} full channel number is ${lastChannel.majorNumber}-${lastChannel.minorNumber}"
+  def descriptionText = "full channel number is ${lastChannel.majorNumber}-${lastChannel.minorNumber}"
   sendEvent(name: "channel", value: lastChannel.majorNumber)
   logger("info", "${descriptionText}")
 
-  descriptionText = "${device.displayName} channelName is ${lastChannel.name}"
+  descriptionText = "channelName is ${lastChannel.name}"
   sendEvent(name: "channelName", value: lastChannel.name, descriptionText: descriptionText)
   logger("info", "${descriptionText}")
 }
@@ -724,7 +724,7 @@ def setLevel(level) {
 def sendMuteEvent(muted) {
   logger("debug", "sendMuteEvent() - muted: ${muted}")
 
-  def descriptionText = "${device.displayName} mute is ${muted}"
+  def descriptionText = "mute is ${muted}"
   logger("info", "${descriptionText}")
   sendEvent(name: "mute", value: muted, descriptionText: descriptionText)
 }
@@ -889,7 +889,7 @@ private void parseStatus(state, json) {
         if ((json?.payload?.appId == null) || (json?.payload?.appId == "")) {
           // The TV is powering off - change the power state, but leave the websocket to time out
           powerEvent("off", "physical")
-          logger("info", "parseStatus() - Received POWER DOWN notification")
+          logger("info", "Received POWER DOWN notification")
         }
       }
     }
@@ -909,7 +909,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx<= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

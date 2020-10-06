@@ -15,7 +15,7 @@
   import groovy.transform.Field
   import groovy.json.JsonSlurper
 
-  @Field String VERSION = "1.0.0"
+  @Field String VERSION = "1.0.1"
 
   @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
   @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -29,9 +29,12 @@
       capability "Refresh"
       capability "Initialize"
 
+      command "alarm"
       command "motion"
       command "setAway"
+      attribute "alarm", "string"
       attribute "sd_status", "string"
+      attribute "alim_status", "string"
       attribute "homeName", "string"
       attribute "person", "string"
       attribute "image_tag", "string"
@@ -43,9 +46,9 @@
       }
       section { // Snapshots
         input name: "cameraIP", title: "Camera Local IP", description: "The address of the camera in your local network", type: "text", required: true
-        input name: "cameraSecret", title: "Camera Access key", description: "Key to access the snapshot", type: "text", required: true
         input name: "motionTimeout", title: "Motion timeout", description: "Motion times out after how many seconds", type: "number", range: "0..3600", defaultValue: 60, required: true
-        input name: "scheduledTake", title: "Take a snapshot every", type: "enum", options:[[0:"No snapshots"], [2:"2min"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 0, required: true
+        input name: "alarmTimeout", title: "Alarm timeout", description: "Alarm times out after how many seconds", type: "number", range: "0..3600", defaultValue: 60, required: true
+        input name: "scheduledTake", title: "Take a snapshot every", type: "enum", options:[[0:"No snapshots"], [2:"2min"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 0, required: true
       }
     }
   }
@@ -61,6 +64,8 @@ def installed() {
     state.deviceInfo = [:]
   }
 
+  sendEvent(name: "alarm", value: "inactive")
+  sendEvent(name: "motion", value: "inactive")
   initialize()
 }
 
@@ -108,6 +113,11 @@ def setHome(homeID,homeName) {
   sendEvent(name: "homeName", value: homeName)
 }
 
+def setAKey(key) {
+  logger("debug", "setAKey(${key?.inspect()})")
+  state.deviceInfo['accessKey'] = key
+}
+
 def setAway() {
   logger("debug", "setAway()")
   parent.setAway(state.deviceInfo['homeID'])
@@ -115,19 +125,31 @@ def setAway() {
 
 def on() {
   logger("debug", "on()")
-  if(logDescText) { log.info "Was turned on" }
+  if(logDescText) {
+    log.info "${device.displayName} Was turned on"
+  } else {
+    logger("info", "Was turned on")
+  }
   sendEvent(name: "switch", value: "on")
 }
 
 def off() {
   logger("debug", "off()")
-  if(logDescText) { log.info "Was turned off" }
+  if(logDescText) {
+    log.info "${device.displayName} Was turned off"
+  } else {
+    logger("info", "Was turned off")
+  }
   sendEvent(name: "switch", value: "off")
 }
 
 def motion(String snapshot_url = null, String person = 'Unknown') {
   logger("debug", "motion(${snapshot_url}, ${person})")
-  if(logDescText) { log.info "Has detected motion (${person})" }
+  if(logDescText) {
+    log.info "${device.displayName} Has detected motion (${person})"
+  } else {
+    logger("info", "Has detected motion (${person})")
+  }
   sendEvent(name: "motion", value: "active", displayed: true)
   sendEvent(name: "person", value: person, displayed: true)
   if (snapshot_url != null) {
@@ -147,55 +169,56 @@ def cancelMotion() {
   sendEvent(name: "motion", value: "inactive")
 }
 
+def alarm(String snapshot_url = null) {
+  logger("debug", "alarm(${snapshot_url})")
+  if(logDescText) {
+    log.info "${device.displayName} Has detected alarm (Sound)"
+  } else {
+    logger("info", "Has detected alarm (Sound)")
+  }
+  sendEvent(name: "alarm", value: "active", displayed: true)
+  if (snapshot_url != null) {
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+  }
+
+  if (alarmTimeout) {
+    startTimer(alarmTimeout, cancelAlarm)
+  } else {
+    logger("debug", "alarm() - Alarm timeout has not been set in preferences, using 10 second default")
+    startTimer(10, cancelAlarm)
+  }
+}
+
+def cancelAlarm() {
+  logger("debug", "cancelAlarm()")
+  sendEvent(name: "alarm", value: "inactive")
+}
+
+// TODO: Needs work to actually store the image somewhere
 def take() {
   logger("debug", "take()")
-  if (cameraSecret == null || cameraIP == null) {
-    logger("error", "take() - Please set camera ip and secret in preferences first")
+  if (cameraIP == null || cameraIP == "") {
+    logger("error", "take() - Please set camera local LAN IP")
+    return
+  }
+
+  if (state.deviceInfo['accessKey'] == null || state.deviceInfo['accessKey'] == 'N/A') {
+    logger("error", "take() - Please verify that the device access key is corect")
     return
   }
 
   def port = 80
-  def path = "/${cameraSecret}/live/snapshot_720.jpg"
-  def iphex = convertIPtoHex(cameraIP).toUpperCase()
-  def porthex = convertPortToHex(port).toUpperCase()
-  logger("debug", "take() - The device id before update is '${$device?.deviceNetworkId}' and after '${iphex}:${porthex}'")
-  device.deviceNetworkId = "$iphex:$porthex"
-
+  def path = "/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
   def hostAddress = "$cameraIP:$port"
-  def headers = [:]
-  headers.put("HOST", hostAddress)
 
-  sendEvent(name: "image", value: "http://"+ hostAddress + path, displayed: true)
-  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="240" height="190">', displayed: true)
-
-  logger("debug", "take() - hubAction - Request: ${hostAddress + path}")
-  def hubAction = new hubitat.device.HubAction(
-    method: "GET",
-    path: path,
-    headers: headers,
-    device.deviceNetworkId,
-    [callback: cmdResponse]
-  )
-  hubAction.options = [outputMsgToS3:true]
-
-  logger("debug", "take() - hubAction: ${hubAction?.inspect()}")
-  sendHubCommand(hubAction)
+  sendEvent(name: "image", value: "http://"+ hostAddress + path, isStateChange: true, displayed: true)
+  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="240" height="190">', isStateChange: true, displayed: true)
 }
 
 private startTimer(seconds, function) {
   def now = new Date()
   def runTime = new Date(now.getTime() + (seconds * 1000))
   runOnce(runTime, function) // runIn isn't reliable, use runOnce instead
-}
-
-private String convertIPtoHex(ipAddress) {
-  String hex = ipAddress.tokenize( '.' ).collect { String.format( '%02x', it.toInteger() ) }.join()
-  return hex
-}
-
-private String convertPortToHex(port) {
-  String hexport = port.toString().format( '%04x', port.toInteger() )
-  return hexport
 }
 
 /**
@@ -210,7 +233,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

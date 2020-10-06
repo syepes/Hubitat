@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -36,8 +36,8 @@ metadata {
     command "vehicle"
     command "animal"
 
-
     attribute "sd_status", "string"
+    attribute "alim_status", "string"
     attribute "switch_light", "string"
     attribute "homeName", "string"
     attribute "image_tag", "string"
@@ -49,9 +49,8 @@ metadata {
     }
     section { // Snapshots
       input name: "cameraIP", title: "Camera Local IP", description: "The address of the camera in your local network", type: "text", required: true
-      input name: "cameraSecret", title: "Camera Access key", description: "Key to access the snapshot", type: "text", required: true
       input name: "motionTimeout", title: "Motion timeout", description: "Motion, Human, Vehicle and Animal detection times out after how many seconds", type: "number", range: "0..3600", defaultValue: 60, required: true
-      input name: "scheduledTake", title: "Take a snapshot every", type: "enum", options:[[0:"No snapshots"], [2:"2min"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 0, required: true
+      input name: "scheduledTake", title: "Take a snapshot every", type: "enum", options:[[0:"No snapshots"], [2:"2min"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 0, required: true
       input name: "motionHumans", title: "HumansAsMotion", description: "Humans detected count as motion", type: "bool", defaultValue: true, required: true
       input name: "motionVehicles", title: "VehiclesAsMotion", description: "Vehicles detected count as motion", type: "bool", defaultValue: true, required: true
       input name: "motionAnimals", title: "AnimalsAsMotion", description: "Animals detected count as motion", type: "bool", defaultValue: true, required: true
@@ -70,6 +69,10 @@ def installed() {
     state.deviceInfo = [:]
   }
 
+  sendEvent(name: "motion", value: "inactive")
+  sendEvent(name: "human", value: "inactive")
+  sendEvent(name: "vehicle", value: "inactive")
+  sendEvent(name: "animal", value: "inactive")
   initialize()
 }
 
@@ -111,55 +114,23 @@ def parse(String description) {
   return []
 }
 
-private parseDescriptionAsMap(description) {
-  logger("trace", "parseDescriptionAsMap() - description: ${description.inspect()}")
-  try {
-    def descMap = description.split(",").inject([:]) { map, param ->
-      def nameAndValue = param.split(":")
-      if (nameAndValue.length == 2){
-        map += [(nameAndValue[0].trim()):nameAndValue[1].trim()]
-      } else {
-        map += [(nameAndValue[0].trim()):""]
-      }
-    }
-
-    def headers = new String(descMap["headers"]?.decodeBase64())
-    def status_code = headers?.tokenize('\r\n')[0]
-    headers = headers?.tokenize('\r\n')?.toList()[1..-1]?.collectEntries{
-      it.split(":",2).with{ [ (it[0]): (it.size()<2) ? null : it[1] ?: null ] }
-    }
-
-    def body = new String(descMap["body"]?.decodeBase64())
-    def body_json
-    logger("trace", "parseDescriptionAsMap() - headers: ${headers.inspect()}, body: ${body.inspect()}")
-
-    if (body && body != "") {
-      if(body.startsWith("{") || body.startsWith("[")) {
-        def slurper = new JsonSlurper()
-        body_json = slurper.parseText(body)
-        logger("trace", "parseDescriptionAsMap() - body_json: ${body_json}")
-      } else {
-        body_json = body
-      }
-    }
-
-    return [desc: descMap.subMap(['mac','ip','port']), status_code: status_code, headers:headers, body:body_json]
-  } catch (e) {
-    logger("error", "parseDescriptionAsMap() - ${e.inspect()}")
-    return [:]
-  }
-}
-
-
 def on() {
   logger("debug", "on()")
-  if(logDescText) { log.info "Was turned on" }
+  if(logDescText) {
+    log.info "${device.displayName} Was turned on"
+  } else {
+    logger("info", "Was turned on")
+  }
   sendEvent(name: "switch", value: "on")
 }
 
 def off() {
   logger("debug", "off()")
-  if(logDescText) { log.info "Was turned off" }
+  if(logDescText) {
+    log.info "${device.displayName} Was turned off"
+  } else {
+    logger("info", "Was turned off")
+  }
   sendEvent(name: "switch", value: "off")
 }
 
@@ -169,12 +140,21 @@ def setHome(homeID,homeName) {
   sendEvent(name: "homeName", value: homeName)
 }
 
+def setAKey(key) {
+  logger("debug", "setAKey(${key?.inspect()})")
+  state.deviceInfo['accessKey'] = key
+}
+
 def human(String snapshot_url=null) {
   logger("debug", "human(${snapshot_url})")
-  if(logDescText) { log.info "Has detected motion (Human)" }
+  if(logDescText) {
+    log.info "${device.displayName} Has detected motion (Human)"
+  } else {
+    logger("info", "Has detected motion (Human)")
+  }
   sendEvent(name: "human", value: "active", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', isStateChange: true, displayed: true)
   }
 
   if (motionHumans) {
@@ -195,10 +175,14 @@ def cancelHuman() {
 
 def vehicle(String snapshot_url=null) {
   logger("debug", "vehicle(${snapshot_url})")
-  if(logDescText) { log.info "Has detected motion (Vehicle)" }
+  if(logDescText) {
+    log.info "${device.displayName} Has detected motion (Vehicle)"
+  } else {
+    logger("info", "Has detected motion (Vehicle)")
+  }
   sendEvent(name: "vehicle", value: "active", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', isStateChange: true, displayed: true)
   }
 
   if (motionVehicles) {
@@ -219,10 +203,14 @@ def cancelVehicle() {
 
 def animal(String snapshot_url=null) {
   logger("debug", "animal(${snapshot_url})")
-  if(logDescText) { log.info "Has detected motion (Animal)" }
+  if(logDescText) {
+    log.info "${device.displayName} Has detected motion (Animal)"
+  } else {
+    logger("info", "Has detected motion (Animal)")
+  }
   sendEvent(name: "animal", value: "active", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', isStateChange: true, displayed: true)
   }
 
   if (motionAnimals) {
@@ -243,10 +231,14 @@ def cancelAnimal() {
 
 def motion(String snapshot_url=null) {
   logger("debug", "motion(${snapshot_url})")
-  if(logDescText) { log.info "Has detected motion" }
+  if(logDescText) {
+    log.info "${device.displayName} Has detected motion"
+  } else {
+    logger("info", "Has detected motion")
+  }
   sendEvent(name: "motion", value: "active", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', isStateChange: true, displayed: true)
   }
 
   if (motionTimeout) {
@@ -262,75 +254,61 @@ def cancelMotion() {
   sendEvent(name: "motion", value: "inactive")
 }
 
+// TODO: Needs work to actually store the image somewhere
 def take() {
   logger("debug", "take()")
-  if (cameraSecret == null || cameraIP == null) {
-    logger("error", "take() - Please set camera ip and secret in preferences first")
+  if (cameraIP == null || cameraIP == "") {
+    logger("error", "take() - Please set camera local LAN IP")
+    return
+  }
+
+  if (state.deviceInfo['accessKey'] == null || state.deviceInfo['accessKey'] == 'N/A') {
+    logger("error", "take() - Please verify that the device access key is corect")
     return
   }
 
   def port = 80
-  def path = "/${cameraSecret}/live/snapshot_720.jpg"
-  def iphex = convertIPtoHex(cameraIP).toUpperCase()
-  def porthex = convertPortToHex(port).toUpperCase()
-  logger("debug", "take() - The device id before update is '${$device?.deviceNetworkId}' and after '${iphex}:${porthex}'")
-  device.deviceNetworkId = "$iphex:$porthex"
-
+  def path = "/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
   def hostAddress = "$cameraIP:$port"
-  def headers = [:]
-  headers.put("HOST", hostAddress)
 
-  sendEvent(name: "image", value: "http://"+ hostAddress + path, displayed: true)
-  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="240" height="190">', displayed: true)
-
-  logger("debug", "take() - hubAction - Request: ${hostAddress + path}")
-  def hubAction = new hubitat.device.HubAction(
-    method: "GET",
-    path: path,
-    headers: headers,
-    device.deviceNetworkId,
-    [callback: cmdResponse]
-  )
-  hubAction.options = [outputMsgToS3:true]
-
-  logger("debug", "take() - hubAction: ${hubAction?.inspect()}")
-  sendHubCommand(hubAction)
+  sendEvent(name: "image", value: "http://"+ hostAddress + path, isStateChange: true, displayed: true)
+  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="240" height="190">', isStateChange: true, displayed: true)
 }
 
 def light_mode(mode="auto") {
   logger("debug", "light_mode(${mode})")
-  if (cameraSecret == null || cameraIP == null) {
-    logger("error", "light_mode() - Please set camera ip and secret in preferences first")
+  if (cameraIP == null || cameraIP == "") {
+    logger("error", "light_mode() - Please set camera local LAN IP")
+    return
+  }
+
+  if (state.deviceInfo['accessKey'] == null || state.deviceInfo['accessKey'] == 'N/A') {
+    logger("error", "light_mode() - Please verify that the device access key is corect")
     return
   }
 
   if (!['auto','on','off'].contains(mode)) {
     logger("error", "light_mode(${mode}) - Floodlight Mode is incorrect")
   } else {
-    logger("info", "light_mode(${mode}) - Floodlight Mode ${mode}")
-    if(logDescText) { log.info "Floodlight Mode set to ${mode}" }
+    if(logDescText) {
+      log.info "${device.displayName} Floodlight Mode ${mode}"
+    } else {
+      logger("info", "Floodlight Mode ${mode}")
+    }
 
     def port = 80
-    def path = "/${cameraSecret}/command/floodlight_set_config?config=${ URLEncoder.encode("{\"mode\":\"${mode}\"}") }"
-    def iphex = convertIPtoHex(cameraIP).toUpperCase()
-    def porthex = convertPortToHex(port).toUpperCase()
-    logger("debug", "take() - The device id before update is '${$device?.deviceNetworkId}' and after '${iphex}:${porthex}'")
-    device.deviceNetworkId = "$iphex:$porthex"
-
+    def path = "/${state.deviceInfo['accessKey']}/command/floodlight_set_config?config=${ URLEncoder.encode("{\"mode\":\"${mode}\"}") }"
     def hostAddress = "$cameraIP:$port"
-    def headers = [:]
-    headers.put("HOST", hostAddress)
-
+    def headers = ["HOST": hostAddress, "Accept": "application/json"]
 
     logger("debug", "light_mode() - hubAction - Request: ${hostAddress + path}")
     def hubAction = new hubitat.device.HubAction(
       method: "GET",
       path: path,
       headers: headers,
-      device.deviceNetworkId,
+      null,
       [callback: cmdResponse]
     )
-    hubAction.options = [outputMsgToS3:true]
 
     logger("debug", "light_mode() - hubAction: ${hubAction?.inspect()}")
     sendHubCommand(hubAction)
@@ -339,8 +317,13 @@ def light_mode(mode="auto") {
 
 def light_intensity(intensity=100) {
   logger("debug", "light_intensity(${intensity})")
-  if (cameraSecret == null || cameraIP == null) {
-    logger("error", "light_intensity() - Please set camera ip and secret in preferences first")
+  if (cameraIP == null || cameraIP == "") {
+    logger("error", "light_intensity() - Please set camera local LAN IP")
+    return
+  }
+
+  if (state.deviceInfo['accessKey'] == null || state.deviceInfo['accessKey'] == 'N/A') {
+    logger("error", "light_intensity() - Please verify that the device access key is corect")
     return
   }
 
@@ -349,48 +332,41 @@ def light_intensity(intensity=100) {
     return
   }
 
-  logger("info", "light_intensity(${intensity}) - Floodlight intensity ${intensity}")
-  if(logDescText) { log.info "Floodlight intensity set to ${intensity}" }
+  if(logDescText) {
+    log.info "${device.displayName} Floodlight intensity set to ${intensity}"
+  } else {
+    logger("info", "Floodlight intensity set to ${intensity}")
+  }
 
   def port = 80
-  def path = "/${cameraSecret}/command/floodlight_set_config?config=${ URLEncoder.encode("{\"intensity\":${intensity}}") }"
-  def iphex = convertIPtoHex(cameraIP).toUpperCase()
-  def porthex = convertPortToHex(port).toUpperCase()
-  logger("debug", "take() - The device id before update is '${$device?.deviceNetworkId}' and after '${iphex}:${porthex}'")
-  device.deviceNetworkId = "$iphex:$porthex"
-
+  def path = "/${state.deviceInfo['accessKey']}/command/floodlight_set_config?config=${ URLEncoder.encode("{\"intensity\":${intensity}}") }"
   def hostAddress = "$cameraIP:$port"
-  def headers = [:]
-  headers.put("HOST", hostAddress)
+  def headers = ["HOST": hostAddress, "Accept": "application/json"]
 
   logger("debug", "light_intensity() - hubAction - Request: ${hostAddress + path}")
   def hubAction = new hubitat.device.HubAction(
     method: "GET",
     path: path,
     headers: headers,
-    device.deviceNetworkId,
+    null,
     [callback: cmdResponse]
   )
-  hubAction.options = [outputMsgToS3:true]
 
   logger("debug", "light_intensity() - hubAction: ${hubAction?.inspect()}")
   sendHubCommand(hubAction)
+}
+
+def cmdResponse(hubitat.device.HubResponse resp) {
+  logger("debug", "cmdResponse() - Status: ${resp?.getStatus()} / Data: ${resp?.getData()}")
+  if (resp.getStatus() >= 300) {
+    logger("error", "cmdResponse() - Status: ${resp?.getStatus()}, Unable to contact device")
+  }
 }
 
 private startTimer(seconds, function) {
   def now = new Date()
   def runTime = new Date(now.getTime() + (seconds * 1000))
   runOnce(runTime, function) // runIn isn't reliable, use runOnce instead
-}
-
-private String convertIPtoHex(ipAddress) {
-  String hex = ipAddress.tokenize( '.' ).collect {  String.format( '%02x', it.toInteger() ) }.join()
-  return hex
-}
-
-private String convertPortToHex(port) {
-  String hexport = port.toString().format( '%04x', port.toInteger() )
-  return hexport
 }
 
 /**

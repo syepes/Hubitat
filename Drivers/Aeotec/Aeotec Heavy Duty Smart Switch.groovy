@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.4"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -41,7 +41,10 @@ metadata {
     fingerprint inClusters: "0x25,0x32"
     fingerprint mfr: "0086", prod: "0103", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //US
     fingerprint mfr: "0086", prod: "0003", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //EU
+    fingerprint mfr: "0086", prod: "0003", deviceId: "004E", inClusters: "0x5E,0x86,0x72,0x98,0x56", outClusters: "0x5A,0x82" //EU
     fingerprint deviceId: "78", inClusters: "0x5E, 0x25, 0x32, 0x31, 0x27, 0x2C, 0x2B, 0x70, 0x85, 0x59, 0x56, 0x72, 0x86, 0x7A, 0x73, 0x98"
+    fingerprint deviceId: "004E", inClusters: "0x5E,0x86,0x72,0x98,0x56", outClusters: "0x5A,0x82"
+
   }
 
   preferences {
@@ -211,7 +214,7 @@ def configure() {
 
   if (!getDataValue("MSR")) {
     cmds = cmds + cmdSequence([
-      zwave.versionV3.versionGet(),
+      zwave.versionV2.versionGet(),
       zwave.firmwareUpdateMdV5.firmwareMdGet(),
       zwave.manufacturerSpecificV2.manufacturerSpecificGet(),
     ], 100)
@@ -340,24 +343,24 @@ def handleMeterReport(cmd){
     //Check if the value has changed my more than 5%, if so mark as a stateChange
     //map.isStateChange = ((cmd.scaledMeterValue - previousValue).abs() > (cmd.scaledMeterValue * 0.05))
     result << createEvent(map)
-    if(logDescText) { log.info "${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
+    if(logDescText) { log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
 
   } else if (cmd.meterType == 2) { // gas
-    logger("info", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${gasUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
+    logger("debug", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${gasUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
     Map map = [name: "gas", unit: gasUnits[cmd.scale], value: cmd.scaledMeterValue, displayed: true]
     result << createEvent(map)
-    if(logDescText) { log.info "${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
+    if(logDescText) { log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
 
   } else if (cmd.meterType == 3) { // water
-    logger("info", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${waterUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
+    logger("debug", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${waterUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
     Map map = [name: "water", unit: waterUnits[cmd.scale], value: cmd.scaledMeterValue, displayed: true]
     result << createEvent(map)
-    if(logDescText) { log.info "${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
+    if(logDescText) { log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
 
   } else { // meter
     Map map = [name: "meter", descriptionText: cmd.toString()]
     result << createEvent(map)
-    if(logDescText) { log.info "${map.name} is ${cmd.toString()}" }
+    if(logDescText) { log.info "${device.displayName} ${map.name} is ${cmd.toString()}" }
 
   }
 
@@ -384,7 +387,7 @@ def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
-  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -442,8 +445,11 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
     break;
   }
 
-  if(map?.descriptionText) { logger("info", "${map.descriptionText}") }
-  if(logDescText && map?.descriptionText) { log.info "${map.descriptionText}" }
+  if(logDescText && map?.descriptionText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else if(map?.descriptionText) {
+    logger("info", "${map.descriptionText}")
+  }
   result << createEvent(map)
   result
 }
@@ -642,7 +648,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

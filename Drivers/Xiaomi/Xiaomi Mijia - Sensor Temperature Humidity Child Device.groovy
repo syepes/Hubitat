@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -75,44 +75,67 @@ def initialize() {
 def parse(value) {
   logger("debug", "parse() - value: ${value?.inspect()}")
   def result = []
-  if (value) {
-    value?.each { k, v ->
-      switch (k) {
-        case 'battery':
-          Map map = [ name: "battery", value: v, unit: "%", displayed: true]
-          sendEvent(map)
-        break
-        case 'location':
-          Map map = [ name: "location", value: v, displayed: true]
-          sendEvent(map)
-        break
-        case 'temperature':
-          Map map = [ name: "temperature", value: v, unit: "\u00b0C", displayed: true]
-          sendEvent(map)
-        break
-        case 'humidity':
-          Map map = [ name: "humidity", value: v, unit: "%", displayed: true]
-          sendEvent(map)
-        break
-        case 'name':
-          state.deviceInfo.name = v
-        break
-        case 'mac':
-          state.deviceInfo.mac = v
-        break
-        case 'firmware':
-          state.deviceInfo.firmware = v
-        break
-        case 'label':
-        case 'type':
-        break
-        default:
-          logger("warn", "parse() - type: ${k} - Unhandled")
-        break
+  try {
+    if (value) {
+      value?.each { k, v ->
+        switch (k) {
+          case 'battery':
+            Map map = [ name: "battery", value: v, unit: "%", displayed: true, descriptionText: "Battery is ${v} %"]
+            if(v.toInteger() < 5) {
+              logger("warn", "Has a low battery")
+            } else {
+              if(logDescText && map?.descriptionText) {
+                log.info "${device.displayName} ${map.descriptionText}"
+              } else if(map?.descriptionText) {
+                logger("info", "${map.descriptionText}")
+              }
+            }
+            sendEvent(map)
+          break
+          case 'location':
+            Map map = [ name: "location", value: v, displayed: true]
+            sendEvent(map)
+          break
+          case 'temperature':
+            Map map = [ name: "temperature", value: v, unit: "\u00b0C", displayed: true, descriptionText: "Temperature is ${v} \u00b0C"]
+            if(logDescText && map?.descriptionText) {
+              log.info "${device.displayName} ${map.descriptionText}"
+            } else if(map?.descriptionText) {
+              logger("info", "${map.descriptionText}")
+            }
+            sendEvent(map)
+          break
+          case 'humidity':
+            Map map = [ name: "humidity", value: v, unit: "%", displayed: true, descriptionText: "Humidity is ${v} %"]
+            if(logDescText && map?.descriptionText) {
+              log.info "${device.displayName} ${map.descriptionText}"
+            } else if(map?.descriptionText) {
+              logger("info", "${map.descriptionText}")
+            }
+            sendEvent(map)
+          break
+          case 'name':
+            state.deviceInfo.name = v
+          break
+          case 'mac':
+            state.deviceInfo.mac = v
+          break
+          case 'firmware':
+            state.deviceInfo.firmware = v
+          break
+          case 'label':
+          case 'type':
+          break
+          default:
+            logger("warn", "parse() - type: ${k} - Unhandled")
+          break
+        }
       }
-    }
 
-    state.deviceInfo.lastevent = (new Date().getTime()/1000) as long
+      state.deviceInfo.lastevent = (new Date().getTime()/1000) as long
+    }
+  } catch (e) {
+    logger("error", "parse() - ${e}, value: ${value?.inspect()}")
   }
   return result
 }
@@ -130,7 +153,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }
