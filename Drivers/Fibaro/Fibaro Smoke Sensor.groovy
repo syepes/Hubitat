@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.5"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -46,9 +46,9 @@ metadata {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
+      input name: "batteryCheckInterval", title: "Battery Check", description: "Check interval of the battery state", type: "enum", options:[[0:"Disabled"], [1:"1h"], [2:"2h"], [3:"3h"], [4:"4h"], [5:"5h"], [6:"6h"], [8:"8h"], [12: "12h"], [24: "24h"], [48: "48h"]], defaultValue: 12, required: true
     }
     section { // Configuration
-      input name: "batteryCheckInterval", title: "Device Battery Check Interval", description: "How aften (hours) should we check the battery level", type: "number", defaultValue: 24, required: true
       input name: "wakeUpInterval", title: "Device Wake Up Interval", description: "", type: "enum", options:[[1:"1h"], [2:"2h"], [3:"3h"], [4:"4h"], [8:"8h"], [24:"12h"], [24: "24h"], [48: "48h"]], defaultValue: 1, required: true
       input name: "param1", title: "Smoke Sensor sensitivity", description: "", type: "enum", options:[[1:"High"],[2:"Medium"],[3:"Low"]], defaultValue: 2, required: true
       input name: "param2", title: "Z-Wave notifications", description: "Activate excess temperature and/or enclosure opening notifications sent to the main controller", type: "enum", options:[[0:"All notifications disabled"],[1:"Enclosure opening notification enabled"],[2:"Exceeding temperature threshold notification enabled"],[3:"All notifications enabled"]], defaultValue: 0, required: true
@@ -140,28 +140,28 @@ private alarmEventSmoke(value) {
   Map map = [name: "smoke", isStateChange: true]
 
   if (value == 2) {
-    logger("info", "Smoke alart detected")
     map.value = "detected"
     map.descriptionText = "Smoke alarm is Active"
 
   } else if (value == 0) {
-    logger("info", "Smoke alart cleared")
     map.value = "clear"
     map.descriptionText = "Smoke alarm is Cleared (no smoke)"
 
   } else if (value == 3) {
-    logger("info", "Smoke alart test")
     map.value = "tested"
     map.descriptionText = "Smoke alarm is Test"
 
   } else {
-    logger("warn", "Smoke alart unknown (${value})")
     map.value = "unknown"
     map.descriptionText = "Smoke alarm Unknown (${value})"
   }
 
   result << createEvent(map)
-  if(logDescText) { log.info "${map.descriptionText}" }
+  if(logDescText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else {
+    logger("info", "${map.descriptionText}")
+  }
 
   result
 }
@@ -172,23 +172,24 @@ private alarmEventHeat(value) {
   Map map = [name: "heatAlarm", isStateChange: true]
 
   if (value == 2) {
-    logger("info", "Heat alart detected")
     map.value = "detected"
     map.descriptionText = "Heat alarm is Active"
 
   } else if (value == 0) {
-    logger("info", "Heat alart cleared")
     map.value = "clear"
     map.descriptionText = "Heat alarm is Cleared (no overheat)"
 
   } else {
-    logger("warn", "Heat alart unknown (${value})")
     map.value = "unknown"
     map.descriptionText = "Heat alarm is Unknown (${value})"
   }
 
   result << createEvent(map)
-  if(logDescText) { log.info "${map.descriptionText}" }
+  if(logDescText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else {
+    logger("info", "${map.descriptionText}")
+  }
 
   result
 }
@@ -260,8 +261,10 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   }
 
   // Check battery level only once every Xh
-  if (!state?.deviceInfo?.lastbatt || now() - state.deviceInfo.lastbatt >= batteryCheckInterval?.toInteger() *60*60*1000) {
-    cmds = cmds + cmdSequence([zwave.batteryV1.batteryGet()], 100)
+  if (batteryCheckInterval) {
+    if (!state?.deviceInfo?.lastbatt || now() - state.deviceInfo.lastbatt >= batteryCheckInterval?.toInteger() *60*60*1000) {
+      cmds = cmds + cmdSequence([zwave.batteryV1.batteryGet()], 100)
+    }
   }
 
   cmds = cmds + cmdSequence([zwave.wakeUpV2.wakeUpNoMoreInformation()], 500)
@@ -310,11 +313,19 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
   } else if (cmd.notificationType == 7) {
     switch (cmd.event) {
       case 0:
-        logger("info", "Tamper cleared")
+        if (logDescText) {
+          log.warn "${device.displayName} Tamper cleared"
+        } else {
+          logger("warn", "Tamper cleared")
+        }
         result << createEvent(name: "tamper", value: "clear", descriptionText: "Tamper cleared", displayed: true)
       break
       case 3:
-        logger("warn", "Tamper detected")
+        if (logDescText) {
+          log.warn "${device.displayName} Tamper detected"
+        } else {
+          logger("warn", "Tamper detected")
+        }
         result << createEvent(name: "tamper", value: "detected", descriptionText: "Tamper detected", displayed: true)
       break
     }
@@ -344,7 +355,7 @@ def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
-  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -385,7 +396,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
 
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
+    if(logDescText) { log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
@@ -400,12 +411,12 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
 
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   state.deviceInfo.lastbatt = now()
@@ -540,6 +551,16 @@ def zwaveEvent(hubitat.zwave.commands.securityv1.NetworkKeyVerify cmd) {
   []
 }
 
+void zwaveEvent(hubitat.zwave.commands.supervisionv1.SupervisionGet cmd){
+  logger("trace", "zwaveEvent(SupervisionGet) - cmd: ${cmd.inspect()}")
+
+  hubitat.zwave.Command encapCmd = cmd.encapsulatedCommand(commandClassVersions)
+  if (encapCmd) {
+    zwaveEvent(encapCmd)
+  }
+  sendHubCommand(new hubitat.device.HubAction(secure(zwave.supervisionV1.supervisionReport(sessionID: cmd.sessionID, reserved: 0, moreStatusUpdates: false, status: 0xFF, duration: 0)), hubitat.device.Protocol.ZWAVE))
+}
+
 def zwaveEvent(hubitat.zwave.Command cmd) {
   logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
   []
@@ -614,7 +635,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

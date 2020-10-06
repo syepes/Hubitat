@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.4"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -187,13 +187,13 @@ def zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) {
     case 136:
       if (cmd.size == 1) {
         result << createEvent(name: "probe", value: "1", descriptionText: "probe 1 detected water")
-        if(logDescText) { log.info "Detected water on probe 1" }
+        if(logDescText) { log.info "${device.displayName} Detected water on probe 1" }
       } else if (cmd.size == 2) {
         result << createEvent(name: "probe", value: "2", descriptionText: "probe 2 detected water")
-        if(logDescText) { log.info "Detected water on probe 2" }
+        if(logDescText) { log.info "${device.displayName} Detected water on probe 2" }
       } else if (cmd.size == 3) {
         result << createEvent(name: "probe", value: "3", descriptionText: "Both probes have detected water")
-        if(logDescText) { log.info "Detected water on both probes" }
+        if(logDescText) { log.info "${device.displayName} Detected water on both probes" }
       }
     break;
     default:
@@ -279,33 +279,33 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
       if (cmd.event == 0x00) {
         result << createEvent(name: "water", value: "dry", descriptionText: "Sensor is dry")
         result << createEvent(name: "probe", value: "dry")
-        if(logDescText) { log.info "Water cleared" }
+        if(logDescText) { log.info "${device.displayName} Water cleared" }
       }
       if (cmd.event == 0x02) {
         result << createEvent(name: "water", value: "wet", descriptionText: "Sensor detected water")
-        if(logDescText) { log.info "Water detected" }
+        if(logDescText) { log.info "${device.displayName} Water detected" }
         result << response(cmd(zwave.configurationV1.configurationGet(parameterNumber: 136)))
       }
     break
     case 0x04:
       if (cmd.event == 0x00) {
         result << createEvent(name: "temperatureStatus", value: "clear", descriptionText: "Temperature cleared")
-        if(logDescText) { log.info "Temperature cleared" }
+        if(logDescText) { log.info "${device.displayName} Temperature cleared" }
       } else if (cmd.event <= 0x02) {
         result << createEvent(name: "temperatureStatus", value: "overheat", descriptionText: "Detected overheat")
-        if(logDescText) { log.info "Temperature overheat detected" }
+        if(logDescText) { log.info "${device.displayName} Temperature overheat detected" }
       } else if (cmd.event == 0x06) {
         result << createEvent(name: "temperatureStatus", value: "low", descriptionText: "Detected low temperature")
-        if(logDescText) { log.info "Temperature low detected" }
+        if(logDescText) { log.info "${device.displayName} Temperature low detected" }
       }
     break
     case 0x07:
       if (cmd.event == 0x00) {
         result << createEvent(name: "shock", value: "clear", descriptionText: "Shock cleared")
-        if(logDescText) { log.info "Shock cleared" }
+        if(logDescText) { log.info "${device.displayName} Shock cleared" }
       } else if (cmd.event == 0x03) {
         result << createEvent(name: "shock", value: "detected", descriptionText: "Shock detected")
-        if(logDescText) { log.info "Shock detected" }
+        if(logDescText) { log.info "${device.displayName} Shock detected" }
         startTimer(motionTimeout?.toInteger(), cancelMotion)
       }
     break
@@ -343,7 +343,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
 
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C")
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
+    if(logDescText) { log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
@@ -358,12 +358,12 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
 
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   state.deviceInfo.lastbatt = now()
@@ -375,6 +375,12 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
 
   String power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
   logger("debug", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
+  []
+}
+
+def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
+  logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -501,7 +507,7 @@ def zwaveEvent(hubitat.zwave.Command cmd) {
 
 def cancelMotion() {
   logger("debug", "cancelMotion()")
-  if(logDescText) { log.info "Shock cleared" }
+  if(logDescText) { log.info "${device.displayName} Shock cleared" }
   sendEvent(name: "shock", value: "clear")
 }
 
@@ -576,7 +582,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

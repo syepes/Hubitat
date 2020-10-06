@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.2.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -24,7 +24,7 @@ import com.hubitat.app.ChildDeviceWrapper
 private getApiUrl() { "https://api.netatmo.com" }
 private getVendorAuthPath() { "/oauth2/authorize" }
 private getVendorTokenPath(){ "${apiUrl}/oauth2/token" }
-private getScope() { "read_station read_thermostat read_camera write_camera read_presence write_presence" }
+private getScope() { "read_camera write_camera access_camera read_presence write_presence access_presence read_doorbell write_doorbell access_doorbell read_station read_thermostat write_thermostat read_smokedetector write_smokedetector read_homecoach write_homecoach" }
 private getClientId() { settings.clientId }
 private getClientSecret() { settings.clientSecret }
 private getServerUrl() { getFullApiServerUrl() }
@@ -104,6 +104,10 @@ def initialize() {
 
     try {
       switch(detail?.type) {
+        case 'NDB':
+          logger("info", "Creating device: Doorbell (${detail?.type}) - ${detail.name}/${detail.homeName}")
+          createChildDevice("Netatmo - Doorbell", detail)
+        break
         case 'NOC':
           logger("info", "Creating device: Camera Presence (${detail?.type}) - ${detail.name}/${detail.homeName}")
           createChildDevice("Netatmo - Presence", detail)
@@ -115,6 +119,9 @@ def initialize() {
         case 'NACamDoorTag':
           logger("info", "Creating device: Door and Window Sensor (${detail?.type}) - ${detail.name}/${detail.cameraName}/${detail.homeName}")
           createChildDevice("Netatmo - Sensor", detail)
+        break
+        default:
+          logger("warn", "initialize() - Unsupported Device (${detail?.type}) - ${detail}")
         break
       }
     } catch (Exception e) {
@@ -165,9 +172,14 @@ def checkState() {
     def data = state?.deviceState[deviceId]
     if (data) {
       // Cameras
-      def child = cd_devices?.find { it.deviceNetworkId == deviceId && data['type']?.matches("^(NOC|NACamera)\$") }
+      def child = cd_devices?.find { it.deviceNetworkId == deviceId && data['type']?.matches("^(NOC|NDB|NACamera)\$") }
       child?.sendEvent(name:'switch', value: data['status'])
       child?.sendEvent(name:'sd_status', value: data['sd_status'])
+      child?.sendEvent(name:'alim_status', value: data['alim_status'])
+      child?.sendEvent(name:'light_mode', value: data['light_mode_status'])
+      child?.sendEvent(name:'quick_display_zone', value: data['quick_display_zone'])
+      child?.sendEvent(name:'max_peers_reached', value: data['max_peers_reached'])
+      child?.sendEvent(name:'websocket_connected', value: data['websocket_connected'])
 
       // Sensor
       child = cd_devices?.find { it.deviceNetworkId == deviceId && data['type']?.matches("^(NACamDoorTag)\$") }
@@ -236,11 +248,11 @@ def authPage() {
       section("Enter Netatmo Application Details") {
         paragraph "Get these details after creating a new application on https://dev.netatmo.com/apps/createanapp"
         input name: "clientId", title: "Client ID", type: "text", required: true
-        input name: "clientSecret", title: "Client secret", type: "text", required: true, submitOnChange: true
+        input name: "clientSecret", title: "Client Secret", type: "text", required: true, submitOnChange: true
       }
       section() {
         paragraph "Click below to login to Netatmo and authorize Hubitat access"
-        href url: oauthInitUrl(), title:"Connect to netatmo:", description: description, external:true, required:false
+        href url: oauthInitUrl(), title: "Connect to netatmo:", description: description, external:true, required:false
       }
     }
 
@@ -248,7 +260,7 @@ def authPage() {
     logger("debug", "authPage() - Showing the device page")
     return dynamicPage(name: "Credentials", title: "Connected", nextPage:"Settings", uninstall: uninstallAllowed, install: false) {
       section() {
-        input name: "Devices", style:"embedded", title:"Netatmo is now connected to Hubitat!", description: description, required: false
+        input name: "Devices", style: "embedded", title: "Netatmo is now connected to Hubitat!", description: description, required: false
       }
     }
   }
@@ -274,43 +286,39 @@ def Settings() {
     section("Logging") {
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
-      input name: "stateCheckInterval", title: "State Check Interval", description: "Check interval of the current state", type: "enum", options:[[5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 15, required: true
+      input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
     }
   }
 }
 
 def oauthInitUrl() {
-  logger("debug", "oauthInitUrl()")
-
-  state.oauthInitState = UUID.randomUUID().toString()
-
-  Map oauthParams = [
-    response_type: "code",
-    client_id: getClientId(),
-    client_secret: getClientSecret(),
-    state: state.oauthInitState,
-    redirect_uri: getCallbackUrl(),
-    scope: getScope()
-  ]
-  Map params = [
-    uri: getApiUrl(),
-    path: getVendorAuthPath(),
-    contentType: "application/json; charset=utf-8",
-    requestContentType: "application/json; charset=utf-8",
-    queryString: toQueryString(oauthParams)
-  ]
-
   try {
+    state.oauthInitState = UUID.randomUUID().toString()
+    logger("debug", "oauthInitUrl() - Set oauthInitState: ${state?.oauthInitState}")
+
+    Map oauthParams = [
+      response_type: "code",
+      client_id: getClientId(),
+      client_secret: getClientSecret(),
+      state: state.oauthInitState,
+      redirect_uri: getCallbackUrl(),
+      scope: getScope()
+    ]
+    Map params = [
+      uri: getApiUrl(),
+      path: getVendorAuthPath(),
+      contentType: "application/json; charset=utf-8",
+      requestContentType: "application/json; charset=utf-8",
+      queryString: toQueryString(oauthParams)
+    ]
+
     logger("debug", "oauthInitUrl() - URL: ${getApiUrl() + getVendorAuthPath()}, PARAMS: ${oauthParams.inspect()}")
     logger("debug", "oauthInitUrl() - Request: ${getApiUrl() + getVendorAuthPath()}?${toQueryString(oauthParams)}")
-    httpGet(params) { resp ->
-      logger("trace", "oauthInitUrl() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
-    }
+
+    return "${getApiUrl() + getVendorAuthPath()}?${toQueryString(oauthParams)}"
   } catch(Exception e){
     logger("error", "oauthInitUrl() - Request Exception: ${e.inspect()}")
   }
-
-  return "${getApiUrl() + getVendorAuthPath()}?${toQueryString(oauthParams)}"
 }
 
 def callback() {
@@ -391,17 +399,29 @@ def webhook() {
         break
         case 'tag_open':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Open detected by ${cd_module}")
-          if(logDescText) { log.info "${cd_module} is open" }
+          if(logDescText) {
+            log.info "${app.name} ${cd_module} is open"
+          } else {
+            logger("info", "${cd_module} is open")
+          }
           cd_module?.sendEvent(name:'contact', value: "open")
         break
         case 'module_connect':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Module connected by ${cd_module}")
-          if(logDescText) { log.info "${cd_module} is connected" }
+          if(logDescText) {
+            log.info "${app.name} ${cd_module} is connected"
+          } else {
+            logger("info", "${cd_module} is connected")
+          }
           cd_module?.sendEvent(name:'contact', value: "connected")
         break
         case 'module_disconnect':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Module disconnected by ${cd_module}")
-          if(logDescText) { log.info "${cd_module} is disconnected" }
+          if(logDescText) {
+            log.info "${app.name} ${cd_module} is disconnected"
+          } else {
+            logger("info", "${cd_module} is disconnected")
+          }
           cd_module?.sendEvent(name:'contact', value: "disconnection")
         break
         case 'tag_uninstalled':
@@ -433,7 +453,7 @@ def webhook() {
 
         if (!cd_person) {
           if (!payload?.message?.contains('Unknown')) {
-            logger("warn", "webhook() - Local Person: ${payload?.persons?.collect{ it?.id }} (${payload?.home_name}) not found")
+            logger("warn", "webhook() - Local Person: ${payload?.persons?.collect{ it?.id }} / ${payload?.persons?.collect{ it?.face_url }} (${payload?.home_name}) not found")
           }
         } else {
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Person detected (${personName}) by ${cd_camera}")
@@ -452,12 +472,20 @@ def webhook() {
         break
         case 'connection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera connection on by ${cd_camera}")
-          if(logDescText) { log.info "${cd_camera} is connected" }
+          if(logDescText) {
+            log.info "${app.name} ${cd_camera} is connected"
+          } else {
+            logger("info", "${cd_camera} is connected")
+          }
           cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera disconnection by ${cd_camera}")
-          if(logDescText) { log.info "${cd_camera} is disconnected" }
+          if(logDescText) {
+            log.warn "${app.name} ${cd_camera} is disconnected"
+          } else {
+            logger("warn", "${cd_camera} is disconnected")
+          }
           cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
         break
         case 'movement':
@@ -474,6 +502,14 @@ def webhook() {
             cd_camera?.motion(payload?.snapshot_url, personName)
           } else {
             cd_camera?.motion()
+          }
+        break
+        case 'alarm_started':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Alarm detected (${personName}) by ${cd_camera}")
+          if (payload?.snapshot_url) {
+            cd_camera?.alarm(payload?.snapshot_url)
+          } else {
+            cd_camera?.alarm()
           }
         break
         default:
@@ -503,12 +539,20 @@ def webhook() {
         break
         case 'connection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera connection on by ${cd_camera}")
-          if(logDescText) { log.info "${cd_camera} is connected" }
+          if(logDescText) {
+            log.info "${app.name} ${cd_camera} is connected"
+          } else {
+            logger("info", "${cd_camera} is connected")
+          }
           cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera disconnection by ${cd_camera}")
-          if(logDescText) { log.info "${cd_camera} is disconnected" }
+          if(logDescText) {
+            log.info "${app.name} ${cd_camera} is disconnected"
+          } else {
+            logger("info", "${cd_camera} is disconnected")
+          }
           cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
         break
         case 'light_mode':
@@ -535,6 +579,78 @@ def webhook() {
           logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_camera}")
         break
       }
+    }
+
+    // Doorbell
+    if (payload?.push_type?.startsWith('NDB')) {
+      String doorbellID = payload?.device_id
+      ChildDeviceWrapper cd_doorbel = cd_devices?.find { it.name == doorbellID }
+
+      if (!cd_doorbel) {
+        logger("warn", "webhook() - Local Doorbell: ${doorbellID} (${payload?.home_id}) not found")
+      }
+
+      // Workaround until they fix the API - https://forum.netatmo.com/viewtopic.php?f=5&t=18880
+      switch( payload?.message ) {
+        case ~/.*Incoming call.*|.*Appel entrant.*/:
+          if(logDescText) {
+            log.info "${app.name} ${cd_doorbel} Call/Ring: Incoming"
+          } else {
+            logger("info", "${cd_doorbel} Call/Ring: Incoming")
+          }
+          cd_doorbel?.ring('incoming')
+        break
+        case ~/.*Someone picked up.*|.*Quelqu’un a accepté l’appel.*/:
+          if(logDescText) {
+            log.info "${app.name} ${cd_doorbel} Call/Ring: Accepted"
+          } else {
+            logger("info", "${cd_doorbel} Call/Ring: Accepted")
+          }
+          cd_doorbel?.ring('accepted')
+        break
+        default:
+          logger("warn", "webhook() - event_type: ${payload} - Unhandled by ${cd_doorbel}")
+        break
+      }
+
+      /* accepted_call,
+      switch (payload?.event_type) {
+        case 'on':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell switched on by ${cd_doorbel}")
+          cd_doorbel?.on()
+        break
+        case 'off':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell switched off by ${cd_doorbel}")
+          cd_doorbel?.off()
+        break
+        case 'connection':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell connection on by ${cd_doorbel}")
+          if(logDescText) {
+            log.info "${app.name} ${cd_doorbel} is connected"
+          } else {
+            logger("info", "${cd_doorbel} is connected")
+          }
+          // cd_doorbel?.sendEvent(name:'switch', value: payload?.event_type)
+        break
+        case 'disconnection':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell disconnection by ${cd_doorbel}")
+          if(logDescText) {
+            log.info "${app.name} ${cd_doorbel} is disconnected"
+          } else {
+            logger("info", "${cd_doorbel} is disconnected")
+          }
+          // cd_doorbel?.sendEvent(name:'switch', value: payload?.event_type)
+        break
+        case 'movement':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected by ${cd_doorbel}")
+          // cd_doorbel?.motion(payload?.snapshot_url)
+        break
+        default:
+          // logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_doorbel}")
+          logger("warn", "webhook() - event_type: ${payload} - Unhandled by ${cd_doorbel}")
+        break
+      }
+      */
     }
 
   } catch(Exception e){
@@ -707,18 +823,25 @@ Map getSecurityDevicesAndPersonList() {
         home.cameras.each { camera ->
           String key = camera.id
           String cameraName = "${camera.name} (${home.name})"
+          String cameraAKey = camera?.containsKey('vpn_url') ? camera.vpn_url.split('/').getAt(5) : 'N/A'
           deviceList[key] = cameraName
           state.deviceDetail[key] = ["id" : key]
           state.deviceDetail[key] << ["name" : cameraName]
           state.deviceDetail[key] << ["type" : camera.type]
           state.deviceDetail[key] << ["homeID" : home.id]
           state.deviceDetail[key] << ["homeName" : home.name]
-          state.deviceState[key] = ["status": camera.status]
+          state.deviceDetail[key] << ["vpn_url" : camera.vpn_url]
+          state.deviceDetail[key] << ["access_key" : cameraAKey]
+          state.deviceState[key] = ["type": camera.type]
+          state.deviceState[key] << ["status": camera.status]
           state.deviceState[key] << ["sd_status": camera.sd_status]
-          state.deviceState[key] << ["type": camera.type]
           state.deviceState[key] << ["alim_status": camera.alim_status]
-          state.deviceState[key] << ["is_local": camera.is_local]
           state.deviceState[key] << ["last_setup": camera.last_setup]
+          state.deviceState[key] << ["is_local": camera?.containsKey('is_local') ? camera.is_local : 'N/A']
+          state.deviceState[key] << ["light_mode_status": camera?.containsKey('light_mode_status') ? camera.light_mode_status : 'N/A']
+          state.deviceState[key] << ["quick_display_zone": camera?.containsKey('quick_display_zone') ? camera.quick_display_zone : 0]
+          state.deviceState[key] << ["max_peers_reached": camera?.containsKey('max_peers_reached') ? camera.max_peers_reached : 'N/A']
+          state.deviceState[key] << ["websocket_connected": camera?.containsKey('websocket_connected') ? camera.websocket_connected : 'N/A']
 
           camera?.modules?.each { module ->
             String key_mod = module.id
@@ -834,8 +957,13 @@ private createChildDevice(String typeName, Map detail) {
 
     if(!cd) {
       logger("debug", "createChildDevice() - Creating child (typeName: ${typeName}, detail: ${detail.inspect()}")
-      cd = addChildDevice("syepes", typeName, detail?.id, hub.id, [name: detail?.id, label: detail?.name, isComponent: true])
+      cd = addChildDevice("syepes", typeName, detail?.id, hub.id, [name: detail?.id, label: detail?.name, isComponent: false])
       cd.setHome(detail?.homeID, detail?.homeName)
+
+      if ( detail?.type?.matches("^(NOC|NDB|NACamera)\$")) {
+        cd.setAKey(detail?.access_key)
+      }
+
       if (detail?.type == 'NACamDoorTag') {
         cd.setCamera(detail?.cameraID, detail?.cameraName)
       }
@@ -911,7 +1039,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${app.name} ${msg}"
     }
   }
 }

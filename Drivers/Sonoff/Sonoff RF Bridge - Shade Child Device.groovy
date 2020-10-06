@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -123,7 +123,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

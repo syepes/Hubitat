@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -80,9 +80,9 @@ def setThermostatMode(mode="auto") {
   }
 
   if (mode_value == null) {
-    logger("error", "setThermostatMode(${mode}) - Mode is incorrect")
+    logger("error", "Mode (${mode}) is incorrect")
   } else {
-    logger("info", "setThermostatMode(${mode}) - Mode value = ${mode_value}")
+    logger("info", "Mode (${mode}) value = ${mode_value}")
 
     cmdSequence([
       zwave.thermostatModeV2.thermostatModeSet(mode: mode_value),
@@ -222,7 +222,6 @@ def childUnLock() {
 
 def setHeatingSetpoint(Double degrees) {
   logger("debug", "setHeatingSetpoint() - degrees: ${degrees}")
-  //cmd: ThermostatSetpointReport(setpointType:1, precision:1, scale:0, size:2, value:[0, 170], scaledValue:17.0)
   cmdSequence([
     zwave.thermostatSetpointV2.thermostatSetpointSet(setpointType: hubitat.zwave.commands.thermostatsetpointv1.ThermostatSetpointSet.SETPOINT_TYPE_HEATING_1, scale: (location.temperatureScale=="F"?1:0), precision: 0, scaledValue: degrees),
     zwave.thermostatSetpointV2.thermostatSetpointGet(setpointType: hubitat.zwave.commands.thermostatsetpointv1.ThermostatSetpointSet.SETPOINT_TYPE_HEATING_1)
@@ -269,17 +268,21 @@ def zwaveEvent(hubitat.zwave.commands.protectionv1.ProtectionReport cmd) {
       map.name = "childLock"
       map.value = false
       map.descriptionText = "The touch buttons are UnLocked"
-      if(logDescText) { log.info "${map.descriptionText}" }
     break
     case "1":
       map.name = "childLock"
       map.value = true
       map.descriptionText = "The touch buttons are Locked"
-      if(logDescText) { log.info "${map.descriptionText}" }
     break
     default:
       logger("warn", "zwaveEvent(ProtectionReport) - Unknown value: ${cmd?.protectionState}")
     break;
+  }
+
+  if(logDescText && map?.descriptionText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else if(map?.descriptionText) {
+    logger("info", "${map.descriptionText}")
   }
 
   sendEvent(map)
@@ -293,8 +296,11 @@ def zwaveEvent(hubitat.zwave.commands.thermostatsetpointv2.ThermostatSetpointRep
     case 1:
       sendEvent(name: "thermostatSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "F" : "C")
       sendEvent(name: "heatingSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "F" : "C")
-      if(logDescText) { log.info "Thermostat Setpoint: ${cmd.scaledValue} \u00b0${getTemperatureScale()}" }
-
+      if(logDescText) {
+        log.info "${device.displayName} Thermostat Setpoint: ${cmd.scaledValue} \u00b0${getTemperatureScale()}"
+      } else {
+        logger("info", "Thermostat Setpoint: ${cmd.scaledValue} \u00b0${getTemperatureScale()}")
+      }
     break;
     default:
       logger("warn", "Unknown setpointType ${cmd.setpointType}")
@@ -333,7 +339,7 @@ def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
-  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -362,11 +368,36 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
     break;
   }
 
-  if(logDescText && map?.descriptionText) { log.info "${map.descriptionText}" }
+  if(logDescText && map?.descriptionText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else if(map?.descriptionText) {
+    logger("info", "${map.descriptionText}")
+  }
   result << createEvent(map)
   result
 }
 
+def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
+  logger("trace", "zwaveEvent(NotificationReport) - cmd: ${cmd.inspect()}")
+  def result = []
+
+  if (cmd.notificationType == 8) {
+    if (cmd.event == 0x0A) {
+      Map map = [name:"battery", value:1, unit:"%", displayed:true]
+      result << createEvent(map)
+    }
+
+  } else if (cmd.notificationType == 9) {
+    if (cmd.event == 0x01) {
+      logger("warn", "System hardware failure")
+    }
+
+  } else {
+    logger("warn", "zwaveEvent(NotificationReport) - Unhandled - cmd: ${cmd.inspect()}")
+  }
+
+  result
+}
 
 def zwaveEvent(hubitat.zwave.commands.thermostatmodev2.ThermostatModeReport cmd) {
   logger("trace", "zwaveEvent(ThermostatModeReport) - cmd: ${cmd.inspect()}")
@@ -391,7 +422,11 @@ def zwaveEvent(hubitat.zwave.commands.thermostatmodev2.ThermostatModeReport cmd)
     break;
   }
 
-  if(logDescText && map?.descriptionText) { log.info "${map.descriptionText}" }
+  if(logDescText && map?.descriptionText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else if(map?.descriptionText) {
+    logger("info", "${map.descriptionText}")
+  }
   result << createEvent(map)
   result
 }
@@ -425,7 +460,7 @@ def zwaveEvent(hubitat.zwave.commands.thermostatoperatingstatev1.ThermostatOpera
     break
   }
 
-  logger("info", "${device.displayName} is ${map.value}")
+  logger("info", "is ${map.value}")
   sendEvent(map)
 
   []
@@ -440,11 +475,11 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   state.deviceInfo.lastbatt = now()
@@ -660,7 +695,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

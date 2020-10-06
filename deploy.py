@@ -115,7 +115,7 @@ def update_app(s, app):
 
 
 def he_login(path):
-    credentialStorageFolderPath = pathlib.Path(path.parent, ".creds")
+    credentialStorageFolderPath = pathlib.Path(path, ".creds")
     cookieJarFilePath = pathlib.Path(credentialStorageFolderPath, "cookie-jar.txt")
     # print("str(cookieJarFilePath.resolve()): " + str(cookieJarFilePath.resolve()))
 

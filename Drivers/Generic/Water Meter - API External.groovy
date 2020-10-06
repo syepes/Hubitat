@@ -12,6 +12,7 @@ metadata {
     capability "Actuator"
     capability "Sensor"
     capability "Water Sensor"
+    capability "Initialize"
     command "clearState"
 
     attribute "last_reading", "string"
@@ -24,6 +25,13 @@ metadata {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
     }
+  }
+}
+
+def initialize() {
+  logger("debug", "initialize()")
+  if (state.deviceInfo == null) {
+    state.deviceInfo = [:]
   }
 }
 
@@ -128,7 +136,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

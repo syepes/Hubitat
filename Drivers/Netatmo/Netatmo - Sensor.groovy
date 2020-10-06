@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -99,7 +99,11 @@ def setCamera(String cameraID, String cameraName) {
 
 def motion(String type) {
   logger("debug", "motion(${type})")
-  if(logDescText) { log.info "Has detected motion (${type})" }
+  if(logDescText) {
+    log.info "${device.displayName} Has detected motion (${type})"
+  } else {
+    logger("debug", "Has detected motion (${type})")
+  }
   sendEvent(name: "motion", value: type, displayed: true)
 
   if (motionTimeout) {
@@ -133,7 +137,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

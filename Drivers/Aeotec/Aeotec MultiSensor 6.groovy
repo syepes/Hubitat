@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -39,6 +39,7 @@ metadata {
 
     fingerprint mfr:"0086", prod:"0002"
     fingerprint deviceId: "100", inClusters: "0x5E, 0x86, 0x72, 0x59, 0x85, 0x73, 0x71, 0x84, 0x80, 0x30, 0x31, 0x70, 0x7A, 0x5A"
+    fingerprint deviceId: "100", inClusters: "0x5E, 0x98, 0x84, 0x5A"
   }
 
   preferences {
@@ -259,23 +260,30 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
     case 0x07:
       switch (cmd.event) {
         case 0: // Previous Events cleared
-          logger("info", "Clear event")
+          if (logDescText) {
+            log.info "${device.displayName} Tamper/Acceleration cleared/inactive"
+          } else {
+            logger("info", "Tamper/Acceleration cleared/inactive")
+          }
           result << motionEvent(0)
-          if (logDescText) { log.info "Tamper cleared" }
           result << createEvent(name: "tamper", value: "clear", descriptionText: "Tamper cleared", displayed: true)
-          if (logDescText) { log.info "Acceleration is inactive" }
           result << createEvent(name: "acceleration", value: "inactive", descriptionText: "Acceleration is inactive", displayed: true)
         break
         case 3: // Tampering Product covering removed
-          logger("info", "Tamper/Acceleration event")
-          if (logDescText) { log.info "Tamper detected" }
+          if (logDescText) {
+            log.warn "${device.displayName} Tamper/Acceleration detected/active"
+          } else {
+            logger("warn", "Tamper/Acceleration detected/active")
+          }
           result << createEvent(name: "tamper", value: "detected", descriptionText: "Tamper detected", displayed: true)
-          if (logDescText) { log.info "Acceleration is active" }
           result << createEvent(name: "acceleration", value: "active", descriptionText: "Acceleration is active", displayed: true)
         break
         case 8: // Motion Detection Unknown Location
-          logger("info", "Motion event")
-          if (logDescText) { log.info "Unknown motion detection" }
+          if (logDescText) {
+            log.info "${device.displayName} Motion detection"
+          } else {
+            logger("info", "Motion detection")
+          }
           result << motionEvent(1)
         break
         default:
@@ -337,8 +345,11 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
     break;
   }
 
-  if(map?.descriptionText) { logger("info", "${map.descriptionText}") }
-  if(logDescText && map?.descriptionText) { log.info "${map.descriptionText}" }
+  if(logDescText && map?.descriptionText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else if(map?.descriptionText) {
+    logger("info", "${map.descriptionText}")
+  }
   result << createEvent(map)
   result
 }
@@ -351,12 +362,12 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
 
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   state.deviceInfo.lastbatt = now()
@@ -368,6 +379,12 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
 
   String power = (cmd.powerLevel > 0) ? "minus${cmd.powerLevel}dBm" : "NormalPower"
   logger("debug", "Powerlevel Report: Power: ${power}, Timeout: ${cmd.timeout}")
+  []
+}
+
+def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
+  logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -524,8 +541,11 @@ private motionEvent(value) {
     map.descriptionText = "Motion is inactive"
   }
 
-  logger("info", "${map.descriptionText}")
-  if(logDescText) { log.info "${map.descriptionText}" }
+  if(logDescText) {
+    log.info "${device.displayName} ${map.descriptionText}"
+  } else {
+    logger("info", "${map.descriptionText}")
+  }
   createEvent(map)
 }
 
@@ -593,7 +613,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

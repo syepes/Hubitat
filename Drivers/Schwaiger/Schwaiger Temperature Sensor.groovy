@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -309,7 +309,7 @@ def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
-  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -319,7 +319,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
 
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
-    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
+    if(logDescText) { log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
@@ -334,11 +334,11 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   state.deviceInfo.lastbatt = now()
@@ -513,7 +513,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

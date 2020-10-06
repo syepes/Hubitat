@@ -14,31 +14,31 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.0"
+@Field String VERSION = "1.0.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Qubino Flush Pilot Wire", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Pilot%20Wire.groovy") {
+  definition (name: "Qubino Flush Shutter - CMV", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Shutter%20-%20CMV.groovy") {
     capability "Actuator"
     capability "Switch"
-    capability "Switch Level"
     capability "Sensor"
+    capability "Power Meter"
+    capability "Energy Meter"
     capability "Temperature Measurement"
     capability "Refresh"
     capability "Polling"
     capability "Configuration"
-    capability "Initialize"
 
     command "clearState"
-    command "pilotMode", [[name:"mode",type:"ENUM", description:"Pilot mode", constraints: ["Stop","Anti Freeze","Eco","Comfort-2","Comfort-1","Comfort"]]]
-    command "onTimer", [[name:"duration",type:"ENUM", description:"Pilot mode", constraints: ["5m","10m","15m","30m","1h","2h","3h","4h","5h","6h","7h","8h"]]]
-    attribute "mode", "enum", ["Stop","Anti Freeze","Eco","Comfort-2","Comfort-1","Comfort"]
+    command "reset"
+    command "Q1"
+    command "Q2"
+    attribute "mode", "string"
 
-    fingerprint mfr: "0159", prod: "0004", model: "0001", deviceJoinName: "Qubino Flush Pilot Wire" // ZMNHJA2
-    fingerprint mfr: "0159", prod: "0004", model: "0051", deviceJoinName: "Qubino Flush Pilot Wire" // ZMNHJD1 (868,4 MHz - EU)
-    fingerprint deviceId: "81", inClusters: "0x5E, 0x86, 0x72, 0x5A, 0x73, 0x20, 0x27, 0x25, 0x26, 0x31, 0x60, 0x85, 0x8E, 0x59, 0x70" // ZMNHJD1 (868,4 MHz - EU)
+    fingerprint mfr:"0159", prod:"0003", model: "0001", deviceJoinName: "Qubino Flush Shutter"
+    fingerprint deviceId:"0052", inClusters:"0x5E,0x5A,0x73,0x98,0x86,0x72,0x27,0x25,0x26,0x32,0x71,0x85,0x8E,0x59,0x70", outClusters:"0x26" // ZMNHCD1 868,4 MHz - EU)
   }
 
   preferences {
@@ -48,17 +48,10 @@ metadata {
       input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
     }
     section { // Configuration
-      input name: "param1", title: "Input 1 (1)", description: "Switch type", type: "enum", options:[[0:"mono-stable (Push button)"],[1:"bi-stable (Toggle switch)"]], defaultValue: 1, required: true
-      input name: "param4", title: "Input 1 (4)", description: "Contact type", type: "enum", options:[[0:"NO (Normally open)"],[1:"NC (Normally close)"]], defaultValue: 0, required: true
-      input name: "param11", title: "Input 1 (11)", description: "Operation mode", type: "enum", options:[[0:"No change"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 1, required: true
-
-      input name: "param2", title: "Input 2 (2)", description: "Switch type", type: "enum", options:[[0:"mono-stable (Push button)"],[1:"bi-stable (Toggle switch)"]], defaultValue: 1, required: true
-      input name: "param5", title: "Input 2 (5)", description: "Contact type", type: "enum", options:[[0:"NO (Normally open)"],[1:"NC (Normally close)"]], defaultValue: 0, required: true
-      input name: "param12", title: "Input 2 (12)", description: "Operation mode", type: "enum", options:[[0:"No change"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 4, required: true
-
-      input name: "param3", title: "Input 3 (3)", description: "Switch type", type: "enum", options:[[0:"mono-stable (Push button)"],[1:"bi-stable (Toggle switch)"]], defaultValue: 1, required: true
-      input name: "param6", title: "Input 3 (6)", description: "Contact type", type: "enum", options:[[0:"NO (Normally open)"],[1:"NC (Normally close)"]], defaultValue: 0, required: true
-      input name: "param13", title: "Input 3 (13)", description: "Operation mode", type: "enum", options:[[0:"No change"],[1:"Comfort"],[2:"Comfort-1"],[3:"Comfort-2"],[4:"Eco"],[5:"Anti Freeze"],[6:"Stop"]], defaultValue: 5, required: true
+      input name: "param10", title: "Respond to switch all", description: "How does the switch respond to the 'Switch All' command", type: "enum", options:[[0:"ALL ON not active, ALL OFF not active"], [1:"ALL ON not active, ALL OFF active"], [2:"ALL ON active, ALL OFF not active"], [255:"ALL ON active, ALL OFF active"]], defaultValue: 255, required: true
+      input name: "param42", title: "Power Reporting - Time interval", description: "Reporting in Watts by time interval for Q1 or Q2", type: "enum", options:[[0:"Disabled"], [60:"1min"], [120:"2min"], [300:"5min"], [600:"10min"], [90:"15min"], [1800: "30min"], [3600: "1h"], [14400: "4h"]], defaultValue: 300, required: true
+      input name: "param110", title: "Temperature sensor offset", description: "Set value is added or subtracted to actual measured value by sensor<br/>32536 = 0.0C<br/>1 - 100 = 0.1 - 10.0 °C<br/>1001 - 1100 = -0.1 - -10.0°C", type: "number", range: "1..32536", defaultValue: 32536, required: true
+      input name: "param120", title: "Temperature sensor reporting", description: "If digital temperature sensor is connected, module reports measured temperature on temperature change defined by this parameter<br/>0 = Reporting disabled<br/>1 - 127 = 0,1 - 12,7°C, step is 0,1°C", type: "number", range: "0..127", defaultValue: 0, required: true
     }
   }
 }
@@ -79,6 +72,8 @@ def installed() {
 
 def initialize() {
   logger("debug", "initialize()")
+  sendEvent(name: "switch", value: "off", descriptionText: "Q1 + Q2", displayed: true)
+  sendEvent(name: "mode", value: "None", descriptionText: "Q2 + Q2 - Off", displayed: true)
 }
 
 def updated() {
@@ -96,10 +91,9 @@ def poll() {
   logger("debug", "poll()")
 
   cmdSequence([
-    zwave.basicV1.basicGet(),
-    zwave.switchBinaryV1.switchBinaryGet(),
     zwave.switchMultilevelV3.switchMultilevelGet(),
-    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: (location.temperatureScale=="F"?1:0))
+    zwave.meterV4.meterGet(scale: 0), // energy kWh
+    zwave.meterV4.meterGet(scale: 2) // watts
   ], 100)
 }
 
@@ -110,58 +104,38 @@ def refresh() {
     zwave.powerlevelV1.powerlevelGet(),
     zwave.versionV2.versionGet(),
     zwave.firmwareUpdateMdV2.firmwareMdGet(),
-    zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
-    zwave.basicV1.basicGet(),
-    zwave.switchMultilevelV3.switchMultilevelGet(),
-    zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 1, scale: (location.temperatureScale=="F"?1:0))
-  ], 100)
+    zwave.manufacturerSpecificV1.manufacturerSpecificGet()
+  ], 200)
 }
 
 def on() {
   logger("debug", "on()")
-
-  cmdSequence([
-    zwave.basicV1.basicSet(value: 0xFF),
-    zwave.basicV1.basicGet()
-  ], 2000)
 }
 
 def off() {
   logger("debug", "off()")
+  sendEvent(name: "switch", value: "off", descriptionText: "Q1 + Q2", displayed: true)
+  sendEvent(name: "mode", value: "None", descriptionText: "Q2 + Q2 - Off", displayed: true)
 
-  cmdSequence([
-    zwave.basicV1.basicSet(value: 0x00),
-    zwave.basicV1.basicGet()
-  ], 2000)
+  cmd(zwave.switchMultilevelV3.switchMultilevelSet(value: 255, dimmingDuration: 0x00))
 }
 
-def onTimer(String duration) {
-  logger("debug", "onTimer(${duration})")
+def Q1() {
+  logger("debug", "Q1() - On")
+  sendEvent(name: "switch", value: "on", descriptionText: "Q1", displayed: true)
+  sendEvent(name: "mode", value: "Q1", descriptionText: "Q1 - On", displayed: true)
 
-  // Validate modes
-  Integer duration_value = null
-  Map duration_map = [300:"5m", 600:"10m", 900:"15m", 1800:"30m", 3600:"1h", 7200:"2h", 10800:"3h", 14400:"4h", 18000:"5h", 21600:"6h", 25200:"7h", 28800:"8h"]
-  duration_map.each { it->
-    if (it.value == duration) { duration_value = it.key }
-  }
-
-  if (duration_value == null) {
-    logger("error", "Time value(${duration}) is incorrect")
-  } else {
-    if(logDescText) {
-      log.info "${device.displayName} Pilot turned on for ${duration} (${duration_value})"
-    } else {
-      logger("info", "Pilot turned on for ${duration} (${duration_value})")
-    }
-
-    startTimer(duration_value, off)
-
-    cmdSequence([
-      zwave.basicV1.basicSet(value: 0xFF),
-      zwave.basicV1.basicGet()
-    ], 2000)
-  }
+  cmd(zwave.switchMultilevelV3.switchMultilevelSet(value: 99, dimmingDuration: 0x00))
 }
+
+def Q2() {
+  logger("debug", "Q2() - On")
+  sendEvent(name: "switch", value: "on", descriptionText: "Q2", displayed: true)
+  sendEvent(name: "mode", value: "Q2", descriptionText: "Q2 - On", displayed: true)
+
+  cmd(zwave.switchMultilevelV3.switchMultilevelSet(value: 0, dimmingDuration: 0x00))
+}
+
 
 def configure() {
   logger("debug", "configure()")
@@ -184,30 +158,40 @@ def configure() {
     zwave.associationV2.associationSet(groupingIdentifier:3, nodeId:zwaveHubNodeId),
     zwave.associationV2.associationSet(groupingIdentifier:4, nodeId:zwaveHubNodeId),
     zwave.associationV2.associationSet(groupingIdentifier:5, nodeId:zwaveHubNodeId),
-    zwave.configurationV1.configurationSet(parameterNumber: 1, size: 1, scaledConfigurationValue: param1.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1, scaledConfigurationValue: param4.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 11, size: 1, scaledConfigurationValue: param11.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: param2.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 5, size: 1, scaledConfigurationValue: param5.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 12, size: 1, scaledConfigurationValue: param12.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: param3.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 6, size: 1, scaledConfigurationValue: param6.toInteger()),
-    zwave.configurationV1.configurationSet(parameterNumber: 13, size: 1, scaledConfigurationValue: param13.toInteger())
+    zwave.associationV2.associationSet(groupingIdentifier:6, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:7, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:8, nodeId:zwaveHubNodeId),
+    zwave.associationV2.associationSet(groupingIdentifier:9, nodeId:zwaveHubNodeId),
+
+    zwave.configurationV1.configurationSet(parameterNumber: 10, size: 2, scaledConfigurationValue: param10.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 40, size: 1, scaledConfigurationValue: 0), // Power Reporting - Power change = Disabled
+    zwave.configurationV1.configurationSet(parameterNumber: 42, size: 2, scaledConfigurationValue: param42.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 71, size: 1, scaledConfigurationValue: 0), // Operating mode = Shutter mode
+    zwave.configurationV1.configurationSet(parameterNumber: 72, size: 2, scaledConfigurationValue: 0), // Slats tilting full turn time
+    zwave.configurationV1.configurationSet(parameterNumber: 73, size: 1, scaledConfigurationValue: 1), // Slats position = Default
+    zwave.configurationV1.configurationSet(parameterNumber: 74, size: 2, scaledConfigurationValue: 0), // Motor moving up/down time = Disabled
+    zwave.configurationV1.configurationSet(parameterNumber: 76, size: 1, scaledConfigurationValue: 0), // Motor operation detection = Disabled
+    zwave.configurationV1.configurationSet(parameterNumber: 78, size: 1, scaledConfigurationValue: 0), // Calibration = Normal Operation
+    zwave.configurationV1.configurationSet(parameterNumber: 85, size: 1, scaledConfigurationValue: 0), // Power consumption max delay time = Time is set automatically
+    zwave.configurationV1.configurationSet(parameterNumber: 90, size: 1, scaledConfigurationValue: 10), // Time delay for next motor movement = 3 Sec
+    zwave.configurationV1.configurationSet(parameterNumber: 110, size: 2, scaledConfigurationValue: param110.toInteger()),
+    zwave.configurationV1.configurationSet(parameterNumber: 120, size: 1, scaledConfigurationValue: param120.toInteger())
   ], 500)
-
-  if (!getDataValue("MSR")) {
-    logger("info", "Refresing device info")
-
-    cmds = cmds + cmdSequence([
-      zwave.powerlevelV1.powerlevelGet(),
-      zwave.versionV2.versionGet(),
-      zwave.firmwareUpdateMdV2.firmwareMdGet(),
-      zwave.manufacturerSpecificV1.manufacturerSpecificGet()
-    ], 100)
-  }
 
   result = result + response(cmds)
   result
+}
+
+def reset() {
+  logger("debug", "reset()")
+
+  sendEvent(name: "power", value: "0", unit: "W", displayed: true)
+  sendEvent(name: "energy", value: "0", unit: "kWh", displayed: true)
+  sendEvent(name: "mode", value: "Unknown", descriptionText: "Q2 + Q2 - Unknown State", displayed: true)
+
+  cmdSequence([
+    zwave.meterV4.meterReset()
+  ])
 }
 
 def clearState() {
@@ -225,8 +209,6 @@ def clearState() {
   } else {
     state.deviceInfo.clear()
   }
-
-  updateDataValue("MSR", "")
   installed()
 }
 
@@ -234,46 +216,10 @@ def checkState() {
   logger("debug", "checkState()")
 
   cmdSequence([
-    zwave.powerlevelV1.powerlevelGet(),
-    zwave.basicV1.basicGet()
+    zwave.powerlevelV1.powerlevelGet()
   ], 200)
 }
 
-def setLevel(BigDecimal value) {
-  logger("debug", "setLevel(${value})")
-  Integer level = Math.max(Math.min(value.toInteger(), 99), 0)
-  cmdSequence([
-    zwave.basicV1.basicSet(value: level),
-    zwave.basicV1.basicGet()
-  ])
-}
-
-def setLevel(BigDecimal value, duration) {
-  logger("debug", "setLevel(${value}, ${duration})")
-  setLevel(value)
-}
-
-def pilotMode(mode="Stop") {
-  // Validate modes
-  Integer mode_value = null
-  Map mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",100:"Comfort"]
-  mode_map.each { it->
-    if (it.value == mode) { mode_value = it.key }
-  }
-
-  if (mode_value == null) {
-    logger("error", "Pilot Mode (${mode}) is incorrect")
-  } else {
-    if(logDescText) {
-      log.info "${device.displayName} Pilot Mode set to ${mode} (${mode_value})"
-    } else {
-      logger("info", "Pilot Mode set to ${mode} (${mode_value})")
-    }
-
-    sendEvent(name: "mode", value: mode, displayed:true)
-    setLevel(mode_value)
-  }
-}
 
 def parse(String description) {
   logger("debug", "parse() - description: ${description.inspect()}")
@@ -315,18 +261,35 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
   []
 }
 
-def zwaveEvent(hubitat.zwave.commands.switchallv1.SwitchAllReport cmd) {
-  logger("trace", "zwaveEvent(SwitchAllReport) - cmd: ${cmd.inspect()}")
+def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
+  logger("trace", "zwaveEvent(MeterReport) - cmd: ${cmd.inspect()}")
+  def result = []
+
+  if (cmd.meterType == 1) { // electric
+    switch(cmd.scale){
+      case 0:
+        result << createEvent(name:"energy", value: cmd.scaledMeterValue, unit:"kWh", displayed: true)
+      break;
+      case 2:
+        result << createEvent(name:"power", value: Math.round(cmd.scaledMeterValue), unit:"W", displayed: true)
+      break;
+      default:
+        logger("warn", "zwaveEvent(MeterReport) - Unknown type: ${cmd.scale}")
+      break;
+    }
+  }
+
+  return result
 }
 
-def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd, Integer endPoint=null) {
+def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
-  if(logDescText) {
-    log.info "${device.displayName} Was turned ${cmd.value ? "on" : "off"}"
-  } else {
-    logger("info", "Was turned ${cmd.value ? "on" : "off"}")
-  }
-  setLevelEvent(cmd)
+  []
+}
+
+def zwaveEvent(hubitat.zwave.commands.switchallv1.SwitchAllReport cmd) {
+  logger("trace", "zwaveEvent(SwitchAllReport) - cmd: ${cmd.inspect()}")
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
@@ -336,12 +299,7 @@ def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SwitchMultilevelReport) - cmd: ${cmd.inspect()}")
-  if(logDescText) {
-    log.info "${device.displayName} Was turned ${cmd.value ? "on" : "off"}"
-  } else {
-    logger("info", "Was turned ${cmd.value ? "on" : "off"}")
-  }
-  setLevelEvent(cmd)
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd, Integer endPoint=null) {
@@ -355,11 +313,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
 
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
-    if(logDescText) {
-      log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}"
-    } else {
-      logger("info", "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}")
-    }
+    if(logDescText) { log.info "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
@@ -390,14 +344,6 @@ void zwaveEvent(hubitat.zwave.commands.versionv2.VersionReport cmd) {
       state.deviceInfo["firmware${target.target}Version"] = targetVersion
     }
   }
-  []
-}
-
-def zwaveEvent(hubitat.zwave.commands.versionv1.VersionCommandClassReport cmd) {
-  logger("trace", "zwaveEvent(VersionCommandClassReport) - cmd: ${cmd.inspect()}")
-
-  state.deviceInfo['commandClassVersion'] = "${cmd.commandClassVersion}"
-  state.deviceInfo['requestedCommandClass'] = "${cmd.requestedCommandClass}"
   []
 }
 
@@ -464,19 +410,6 @@ def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
   }
 }
 
-def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
-  logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
-
-  def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
-  if (encapsulatedCommand) {
-    logger("trace", "zwaveEvent(MultiChannelCmdEncap) - encapsulatedCommand: ${encapsulatedCommand}")
-    zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint as Integer)
-  } else {
-    logger("warn", "zwaveEvent(MultiChannelCmdEncap) - Unable to extract MultiChannel command from: ${cmd.inspect()}")
-    []
-  }
-}
-
 def zwaveEvent(hubitat.zwave.commands.securityv1.SecuritySchemeReport cmd) {
   logger("trace", "zwaveEvent(SecuritySchemeReport) - cmd: ${cmd.inspect()}")
   []
@@ -508,20 +441,6 @@ void zwaveEvent(hubitat.zwave.commands.supervisionv1.SupervisionGet cmd){
 def zwaveEvent(hubitat.zwave.Command cmd) {
   logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
   []
-}
-
-private setLevelEvent(hubitat.zwave.Command cmd) {
-  logger("debug", "setLevelEvent(Command) - cmd: ${cmd.inspect()}")
-  def result = []
-
-  String value = (cmd.value ? "on" : "off")
-  Map mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",99:"Comfort", 100:"Comfort"]
-
-  result << createEvent(name: "switch", value: value, descriptionText: "Was turned $value")
-  result << createEvent(name: "level", value: cmd.value == 99 ? 100 : cmd.value , unit: "%")
-  result << createEvent(name: "mode", value: mode_map[cmd.value?.toInteger()])
-
-  result
 }
 
 private cmd(hubitat.zwave.Command cmd) {
@@ -560,22 +479,23 @@ private isSecured() {
 
 private getCommandClassVersions() {
   return [0x5E: 1, // COMMAND_CLASS_ZWAVEPLUS_INFO (Insecure)
-          0x86: 1, // COMMAND_CLASS_VERSION (Insecure)
-          0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
           0x5A: 1, // COMMAND_CLASS_DEVICE_RESET_LOCALLY (Insecure)
           0x73: 1, // COMMAND_CLASS_POWERLEVEL (Insecure)
-          0x20: 1, // COMMAND_CLASS_BASIC
+          0x98: 1, // COMMAND_CLASS_SECURITY (Secure)
+          0x86: 2, // COMMAND_CLASS_VERSION (Insecure)
+          0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
           0x27: 1, // COMMAND_CLASS_SWITCH_ALL
           0x25: 1, // COMMAND_CLASS_SWITCH_BINARY
           0x26: 3, // COMMAND_CLASS_SWITCH_MULTILEVEL_V2
-          0x31: 5, // COMMAND_CLASS_SENSOR_MULTILEVEL
-          0x60: 1, // COMMAND_CLASS_MULTI_INSTANCE
+          0x32: 4, // COMMAND_CLASS_METER
+          0x71: 3, // COMMAND_CLASS_ALARM (Secure)
           0x85: 2, // COMMAND_CLASS_ASSOCIATION (Secure)
           0x8E: 2, // COMMAND_CLASS_MULTI_INSTANCE_ASSOCIATION
           0x59: 1, // COMMAND_CLASS_ASSOCIATION_GRP_INFO (Secure)
           0x70: 2  // COMMAND_CLASS_CONFIGURATION_V2 (Secure)
   ]
 }
+
 
 private startTimer(Integer seconds, function) {
   def now = new Date()
@@ -595,13 +515,13 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${device.displayName} ${msg}"
+      log."${level}" "${msg}"
     }
   }
 }
 
 def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Pilot%20Wire.groovy"]
+  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Shutter%20-%20CMV.groovy"]
   asynchttpGet("updateCheckHandler", params)
 }
 

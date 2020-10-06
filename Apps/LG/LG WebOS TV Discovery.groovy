@@ -362,7 +362,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx<= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${app.name} ${msg}"
     }
   }
 }

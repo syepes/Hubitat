@@ -15,13 +15,14 @@
 import groovy.json.JsonSlurper
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
 
 /*
 Example VD_JSON definition json string
+Note: the string must be defined as one single line (https://www.webtoolkitonline.com/json-minifier.html), see the below examples:
 {
   "Shade:Bedroom":{
     "close":"< B0 String that closes the Shade >",
@@ -34,7 +35,7 @@ Example VD_JSON definition json string
   }
 }
 */
-@Field String VD_JSON = '{}'
+@Field String VD_JSON = '{"Shade:Bedroom":{"close":"< B0 String that closes the Shade >","open":"< B0 String that opens the Shade >","stop":"< B0 String to stop the Shade >"},"Switch:Radio":{"on":"< B0 String turn on the Switch >","off":"< B0 String turn off the Switch >"}}'
 
 metadata {
   definition (name: "Sonoff RF Bridge", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.groovy") {
@@ -233,7 +234,11 @@ private def childClose(String value) {
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               cd.parse([[name:"windowShade", value:"closed", descriptionText:"Was closed"]])
               cd.parse([[name:"switch", value:"off", descriptionText:"Was opened"]])
-              if(logDescText) { log.info "Was closed" }
+              if(logDescText) {
+                log.info "${cd.displayName} Was closed"
+              } else {
+                logger("info", "${cd.displayName} Was closed")
+              }
             }
 
         } else {
@@ -267,7 +272,11 @@ private def childOpen(String value) {
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               cd.parse([[name:"windowShade", value:"closed", descriptionText:"Was opened"]])
               cd.parse([[name:"switch", value:"on", descriptionText:"Was opened"]])
-              if(logDescText) { log.info "Was opened" }
+              if(logDescText) {
+                log.info "${cd.displayName} Was opened"
+              } else {
+                logger("info", "${cd.displayName} Was opened")
+              }
             }
 
         } else {
@@ -300,7 +309,11 @@ private def childStop(String value) {
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.stop
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               cd.parse([[name:"windowShade", value:"partially open", descriptionText:"Was stopped"]])
-              if(logDescText) { log.info "Was stopped" }
+              if(logDescText) {
+                log.info "${cd.displayName} Was stopped"
+              } else {
+                logger("info", "${cd.displayName} Was stopped")
+              }
             }
 
         } else {
@@ -339,7 +352,11 @@ private def childOn(String value) {
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.off
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               cd.parse([[name:"switch", value:"off", descriptionText:"Was turned off"]])
-              if(logDescText) { log.info "Was turned off" }
+              if(logDescText) {
+                log.info "${cd.displayName} Was turned off"
+              } else {
+                logger("info", "${cd.displayName} Was turned off")
+              }
             }
 
         } else {
@@ -372,7 +389,11 @@ private def childOff(String value) {
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.on
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               cd.parse([[name:"switch", value:"on", descriptionText:"Was turned on"]])
-              if(logDescText) { log.info "Was turned on" }
+              if(logDescText) {
+                log.info "${cd.displayName} Was turned on"
+              } else {
+                logger("info", "${cd.displayName} Was turned on")
+              }
             }
 
         } else {
@@ -519,7 +540,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }

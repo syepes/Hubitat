@@ -15,7 +15,7 @@
 import hubitat.zwave.commands.doorlockv1.*
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -215,24 +215,36 @@ def zwaveEvent(DoorLockOperationReport cmd) {
   def result = []
 
   if (cmd.doorLockMode == 0xFF) {
-    logger("info", "Locked")
+    if(logDescText) {
+      log.info "${device.displayName} Strike Closed (Permanently)"
+    } else {
+      logger("info", "Strike Closed (Permanently)")
+    }
     result << createEvent(name: "lock", value: "locked", descriptionText: "Strike Closed (Permanently)", displayed: true)
-    if(logDescText) { log.info "Strike Closed (Permanently)" }
 
   } else if (cmd.doorLockMode >= 0x40) {
-    logger("info", "Unknown")
+    if(logDescText) {
+      log.info "${device.displayName} Strike in Unknown state"
+    } else {
+      logger("info", "Strike in Unknown state")
+    }
     result << createEvent(name: "lock", value: "unknown", descriptionText: "Strike in Unknown state", displayed: true)
-    if(logDescText) { log.info "Strike in Unknown state" }
 
   } else if (cmd.doorLockMode & 1) {
-    logger("info", "Unlocked with timeout")
+    if(logDescText) {
+      log.info "${device.displayName} Strike Open (Temporarily)"
+    } else {
+      logger("info", "Strike Open (Temporarily)")
+    }
     result << createEvent(name: "lock", value: "unlocked", descriptionText: "Strike Open (Temporarily)", displayed: true)
-    if(logDescText) { log.info "Strike Open (Temporarily)" }
 
   } else {
-    logger("info", "Unlocked")
+    if(logDescText) {
+      log.info "${device.displayName} Strike Open (Permanently)"
+    } else {
+      logger("info", "Strike Open (Permanently)")
+    }
     result << createEvent(name: "lock", value: "unlocked", descriptionText: "Strike Open (Permanently)", displayed: true)
-    if(logDescText) { log.info "Strike Open (Permanently)" }
   }
 
   result
@@ -248,11 +260,10 @@ def zwaveEvent(hubitat.zwave.commands.alarmv2.AlarmReport cmd) {
 
   if (cmd.alarmType == 0) {
     if (cmd.zwaveAlarmEvent == 22) {
-      logger("info", "zwaveEvent(AlarmReport) - Dry Input Open")
-
+      logger("info", "Dry Input Open")
     }
     if (cmd.zwaveAlarmEvent == 23) {
-      logger("info", "zwaveEvent(AlarmReport) - Dry Input Closed")
+      logger("info", "Dry Input Closed")
     }
   }
   []
@@ -260,8 +271,11 @@ def zwaveEvent(hubitat.zwave.commands.alarmv2.AlarmReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) {
   logger("trace", "zwaveEvent(SensorBinaryReport) - cmd: ${cmd.inspect()}")
-  logger("info", "zwaveEvent(SensorBinaryReport) - Dry Input is ${cmd.sensorValue ? "open" : "closed"}")
-  if(logDescText) { log.info "Dry Input is ${cmd.sensorValue ? "open" : "closed"}" }
+  if(logDescText) {
+    log.info "${device.displayName} Dry Input is ${cmd.sensorValue ? "open" : "closed"}"
+  } else {
+    logger("info", "Dry Input is ${cmd.sensorValue ? "open" : "closed"}")
+  }
 
   createEvent(name: "door", value: cmd.sensorValue ? "open" : "closed")
 }
@@ -286,7 +300,7 @@ def zwaveEvent(hubitat.zwave.commands.configurationv2.ConfigurationReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
   logger("trace", "zwaveEvent(DeviceResetLocallyNotification) - cmd: ${cmd.inspect()}")
-  logger("warn", "zwaveEvent(DeviceResetLocallyNotification) - device has reset itself")
+  logger("warn", "Has reset itself")
   []
 }
 
@@ -298,11 +312,11 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
     map.value = 1
     map.descriptionText = "Has a low battery"
     map.isStateChange = true
-    logger("warn", map.descriptionText)
+    logger("warn", "${map.descriptionText}")
   } else {
     map.value = cmd.batteryLevel
     map.descriptionText = "Battery is ${cmd.batteryLevel} ${map.unit}"
-    logger("info", map.descriptionText)
+    logger("info", "${map.descriptionText}")
   }
 
   createEvent(map)
@@ -519,7 +533,7 @@ private logger(level, msg) {
       setLevelIdx = LOG_LEVELS.indexOf(DEFAULT_LOG_LEVEL)
     }
     if (levelIdx <= setLevelIdx) {
-      log."${level}" "${msg}"
+      log."${level}" "${device.displayName} ${msg}"
     }
   }
 }
