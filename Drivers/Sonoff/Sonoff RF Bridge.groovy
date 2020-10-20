@@ -15,7 +15,7 @@
 import groovy.json.JsonSlurper
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -118,7 +118,7 @@ def configure() {
 
   schedule("0 0 12 */7 * ?", updateCheck)
 
-  if (stateCheckInterval) {
+  if (stateCheckInterval.toInteger()) {
     if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
       schedule("0 */${stateCheckInterval} * ? * *", checkState)
     } else {

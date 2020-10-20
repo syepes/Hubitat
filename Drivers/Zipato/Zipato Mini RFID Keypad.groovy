@@ -14,7 +14,7 @@
 import hubitat.zwave.commands.usercodev1.*
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.0"
+@Field String VERSION = "1.1.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -61,6 +61,7 @@ metadata {
 
     fingerprint mfr: "0097", prod: "6131", model: "4501"
     fingerprint deviceId: "17665", inClusters: "0x85, 0x80, 0x84, 0x86, 0x72, 0x71, 0x70, 0x25, 0x63" // ZHD01
+    fingerprint deviceId: "4501", inClusters: "0x85,0x80,0x84,0x86,0x72,0x71,0x70,0x25,0x63" // ZHD01
 
   }
 
@@ -453,6 +454,15 @@ def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
   result
 }
 
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalGet cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalGet) - cmd: ${cmd.inspect()}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalReport cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalReport) - cmd: ${cmd.inspect()}")
+  logger("info", "Device wakup interval: ${cmd.seconds}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("trace", "zwaveEvent(WakeUpNotification) - cmd: ${cmd.inspect()}")
   logger("info", "Device woke up")
@@ -483,6 +493,7 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
       zwave.versionV1.versionCommandClassGet(),
       zwave.firmwareUpdateMdV2.firmwareMdGet(),
       zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+      zwave.wakeUpV2.wakeUpIntervalGet(),
       zwave.switchBinaryV1.switchBinaryGet(),
       zwave.userCodeV1.usersNumberGet(),
       zwave.userCodeV1.userCodeGet(userIdentifier: 1),

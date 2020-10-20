@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.2.0"
+@Field String VERSION = "1.2.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -24,7 +24,7 @@ import com.hubitat.app.ChildDeviceWrapper
 private getApiUrl() { "https://api.netatmo.com" }
 private getVendorAuthPath() { "/oauth2/authorize" }
 private getVendorTokenPath(){ "${apiUrl}/oauth2/token" }
-private getScope() { "read_camera write_camera access_camera read_presence write_presence access_presence read_doorbell write_doorbell access_doorbell read_station read_thermostat write_thermostat read_smokedetector write_smokedetector read_homecoach write_homecoach" }
+private getScope() { "read_home write_home read_camera write_camera access_camera read_presence write_presence access_presence read_doorbell write_doorbell access_doorbell read_station read_thermostat write_thermostat read_smokedetector write_smokedetector read_homecoach write_homecoach" }
 private getClientId() { settings.clientId }
 private getClientSecret() { settings.clientSecret }
 private getServerUrl() { getFullApiServerUrl() }
@@ -173,13 +173,14 @@ def checkState() {
     if (data) {
       // Cameras
       def child = cd_devices?.find { it.deviceNetworkId == deviceId && data['type']?.matches("^(NOC|NDB|NACamera)\$") }
-      child?.sendEvent(name:'switch', value: data['status'])
+      child?.sendEvent(name:'switch', value: data['status'] =~ /^(connected|on)/ ? 'on' : 'off')
+      child?.sendEvent(name:'status', value: data['status'])
       child?.sendEvent(name:'sd_status', value: data['sd_status'])
       child?.sendEvent(name:'alim_status', value: data['alim_status'])
-      child?.sendEvent(name:'light_mode', value: data['light_mode_status'])
-      child?.sendEvent(name:'quick_display_zone', value: data['quick_display_zone'])
-      child?.sendEvent(name:'max_peers_reached', value: data['max_peers_reached'])
-      child?.sendEvent(name:'websocket_connected', value: data['websocket_connected'])
+      if (data['light_mode_status'] != 'N/A') { child?.sendEvent(name:'light_mode', value: data['light_mode_status']) }
+      if (data['quick_display_zone'] != 0) { child?.sendEvent(name:'quick_display_zone', value: data['quick_display_zone']) }
+      if (data['max_peers_reached'] != 'N/A') { child?.sendEvent(name:'max_peers_reached', value: data['max_peers_reached']) }
+      if (data['websocket_connected'] != 'N/A') { child?.sendEvent(name:'websocket_connected', value: data['websocket_connected']) }
 
       // Sensor
       child = cd_devices?.find { it.deviceNetworkId == deviceId && data['type']?.matches("^(NACamDoorTag)\$") }
@@ -188,7 +189,7 @@ def checkState() {
       child?.sendEvent(name:'rf', value: data['rf'])
       child?.sendEvent(name:'last_activity', value: data['last_activity'])
     } else {
-      logger("warn", "checkState() - status (switch) error on device ${deviceId}")
+      logger("warn", "checkState() - Could not find device ${deviceId} state")
     }
   }
 
@@ -389,7 +390,7 @@ def webhook() {
     // Smart Indoor Camera (welcome) Sensors
     if (payload?.push_type?.startsWith('NACamera-tag')) {
       String moduleID = payload?.module_id
-      ChildDeviceWrapper cd_module = cd_devices?.find { it.name == moduleID }
+      ChildDeviceWrapper cd_module = cd_devices?.find { it.deviceNetworkId == moduleID }
 
       switch (payload?.event_type) {
         case 'tag_big_move':
@@ -437,7 +438,7 @@ def webhook() {
     // Smart Indoor Camera (welcome)
     if (payload?.push_type?.startsWith('NACamera')) {
       String cameraID = payload?.camera_id
-      ChildDeviceWrapper cd_camera = cd_devices?.find { it.name == cameraID }
+      ChildDeviceWrapper cd_camera = cd_devices?.find { it.deviceNetworkId == cameraID }
 
       if (!cd_camera) {
         logger("warn", "webhook() - Local Camera: ${cameraID} (${payload?.home_name}) not found")
@@ -447,7 +448,7 @@ def webhook() {
       if (payload?.event_type == 'person') {
         def cd_person = cd_devices?.find { c ->
           payload?.persons?.find { p ->
-            if (p.id == c.name) { personName = c.label; return c } else { false }
+            if (p.id == c.deviceNetworkId) { personName = c.label; return c } else { false }
           }
         }
 
@@ -477,7 +478,8 @@ def webhook() {
           } else {
             logger("info", "${cd_camera} is connected")
           }
-          cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
+          cd_camera?.sendEvent(name:'switch', value: 'on')
+          cd_camera?.sendEvent(name:'status', value: payload?.event_type)
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera disconnection by ${cd_camera}")
@@ -486,7 +488,8 @@ def webhook() {
           } else {
             logger("warn", "${cd_camera} is disconnected")
           }
-          cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
+          cd_camera?.sendEvent(name:'switch', value: 'off')
+          cd_camera?.sendEvent(name:'status', value: payload?.event_type)
         break
         case 'movement':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected by ${cd_camera}")
@@ -522,7 +525,7 @@ def webhook() {
     // Smart Outdoor Camera (presence)
     if (payload?.push_type?.startsWith('NOC')) {
       String cameraID = payload?.camera_id
-      ChildDeviceWrapper cd_camera = cd_devices?.find { it.name == cameraID }
+      ChildDeviceWrapper cd_camera = cd_devices?.find { it.deviceNetworkId == cameraID }
 
       if (!cd_camera) {
         logger("warn", "webhook() - Local Camera: ${cameraID} (${payload?.home_name}) not found")
@@ -544,7 +547,8 @@ def webhook() {
           } else {
             logger("info", "${cd_camera} is connected")
           }
-          cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
+          cd_camera?.sendEvent(name:'switch', value: 'on')
+          cd_camera?.sendEvent(name:'status', value: payload?.event_type)
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera disconnection by ${cd_camera}")
@@ -553,7 +557,8 @@ def webhook() {
           } else {
             logger("info", "${cd_camera} is disconnected")
           }
-          cd_camera?.sendEvent(name:'switch', value: payload?.event_type)
+          cd_camera?.sendEvent(name:'switch', value: 'off')
+          cd_camera?.sendEvent(name:'status', value: payload?.event_type)
         break
         case 'light_mode':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera light is ${payload?.sub_type} by ${cd_camera}")
@@ -584,7 +589,7 @@ def webhook() {
     // Doorbell
     if (payload?.push_type?.startsWith('NDB')) {
       String doorbellID = payload?.device_id
-      ChildDeviceWrapper cd_doorbel = cd_devices?.find { it.name == doorbellID }
+      ChildDeviceWrapper cd_doorbel = cd_devices?.find { it.deviceNetworkId == doorbellID }
 
       if (!cd_doorbel) {
         logger("warn", "webhook() - Local Doorbell: ${doorbellID} (${payload?.home_id}) not found")
@@ -857,6 +862,7 @@ Map getSecurityDevicesAndPersonList() {
             state.deviceDetail[key_mod] << ["cameraName" : camera.name]
             state.deviceState[key_mod] = ["status": (module.status == 'no_news' ? 'disconnection' : module.status)]
             state.deviceState[key_mod] << ["type": module.type]
+            state.deviceState[key_mod] << ["monitoring": module.monitoring]
             state.deviceState[key_mod] << ["rf": module.rf]
             state.deviceState[key_mod] << ["battery_percent": module.battery_percent]
             state.deviceState[key_mod] << ["last_activity": module.last_activity]
@@ -884,8 +890,8 @@ Map getSecurityDevicesAndPersonList() {
           state.deviceDetail[key] << ["type" : smokedetector.type]
           state.deviceDetail[key] << ["homeID" : home.id]
           state.deviceDetail[key] << ["homeName" : home.name]
-          state.deviceState[key] = ["last_setup": smokedetector.last_setup]
           state.deviceState[key] = ["type": smokedetector.type]
+          state.deviceState[key] << ["last_setup": smokedetector.last_setup]
         }
       }
     }

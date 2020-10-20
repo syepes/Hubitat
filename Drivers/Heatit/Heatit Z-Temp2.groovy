@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.0"
+@Field String VERSION = "1.1.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -142,7 +142,7 @@ def configure() {
   logger("debug", "configure()")
   schedule("0 0 12 */7 * ?", updateCheck)
 
-  if (batteryCheckInterval) {
+  if (batteryCheckInterval.toInteger()){
     if (['5', '10', '15', '30'].contains(batteryCheckInterval) ) {
       schedule("0 */${batteryCheckInterval} * ? * *", checkBattery)
     } else {

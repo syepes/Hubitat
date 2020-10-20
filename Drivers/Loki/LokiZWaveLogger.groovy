@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -55,7 +55,7 @@ void installed() {
 void updated() {
   logger("debug", "updated()")
   initialize()
-  if(deviceDetails) { deviceInventory() }
+  if (deviceDetails.toInteger()) { deviceInventory() }
 }
 
 void parse(String description) {
@@ -92,7 +92,7 @@ void parse(String description) {
                       speed: (ime?.speed?.trim() ?: 'None')
         ]
 
-        if(deviceDetails) {
+        if (deviceDetails.toInteger()) {
           if(deviceData?.size() > 0 && deviceData?.containsKey(descData.id)) {
             labels['device_id'] = deviceData[descData.id].id
             labels['device_driver'] = deviceData[descData.id].deviceTypeName
@@ -215,7 +215,7 @@ void initialize() {
   unschedule()
   runIn(5, "connect")
   schedule("0 0 12 */7 * ?", updateCheck)
-  if(deviceDetails) { schedule("0 0 * ? * *", deviceInventory) }
+  if (deviceDetails.toInteger()) { schedule("0 0 * ? * *", deviceInventory) }
 }
 
 void webSocketStatus(String status) {
@@ -354,7 +354,7 @@ void deviceInventory() {
 
     Map params = [
       uri: 'http://localhost:8080',
-      path: '/device/list/data',
+      path: '/device/list/all/data',
       contentType: "application/json; charset=utf-8",
       requestContentType: "application/json; charset=utf-8",
       headers: headers

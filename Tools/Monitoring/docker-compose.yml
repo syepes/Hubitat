@@ -1,0 +1,63 @@
+version: "3.5"
+
+networks:
+  data:
+    driver: bridge
+
+services:
+  vm:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: vm
+    hostname: vm
+    restart: always
+    stop_grace_period: 5m
+    networks:
+      - data
+    ports:
+      - 8428:8428/tcp
+    volumes:
+      - ./data/vm:/data
+    command:
+      - "-storageDataPath=/data"
+      - "-loggerLevel=INFO"
+      - "-loggerFormat=default"
+      - "-httpListenAddr=:8428"
+      - "-retentionPeriod=24"
+      - "-memory.allowedPercent=60"
+      - "-influxSkipSingleField"
+      - "-selfScrapeInterval=30s"
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    hostname: loki
+    restart: always
+    stop_grace_period: 5m
+    networks:
+      - data
+    ports:
+      - 3100:3100/tcp
+    volumes:
+      - ./cfg/loki.yml:/loki.yml
+      - ./data/loki:/data
+    command:
+      - "-config.file=/loki.yml"
+      - "-log.level=info"
+      - "-log.format=logfmt"
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    hostname: grafana
+    restart: always
+    networks:
+      - data
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./cfg/grafana/provisioning/:/etc/grafana/provisioning/
+      - ./data/grafana:/var/lib/grafana
+    depends_on:
+      - vm
+      - loki

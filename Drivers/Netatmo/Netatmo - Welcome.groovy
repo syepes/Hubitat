@@ -15,7 +15,7 @@
   import groovy.transform.Field
   import groovy.json.JsonSlurper
 
-  @Field String VERSION = "1.0.1"
+  @Field String VERSION = "1.0.2"
 
   @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
   @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -33,6 +33,7 @@
       command "motion"
       command "setAway"
       attribute "alarm", "string"
+      attribute "status", "string"
       attribute "sd_status", "string"
       attribute "alim_status", "string"
       attribute "homeName", "string"
@@ -89,7 +90,7 @@ def initialize() {
 
   schedule("0 0 12 */7 * ?", updateCheck)
 
-  if (scheduledTake) {
+  if (scheduledTake.toInteger()) {
     if (['2', '5', '10', '15', '30'].contains(scheduledTake) ) {
       schedule("0 */${scheduledTake} * ? * *", take)
     } else {
