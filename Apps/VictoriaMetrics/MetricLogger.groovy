@@ -15,11 +15,12 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.1.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
+@Field static Map deviceData = [:]
 @Field static List sendQueue = []
 @Field static boolean asyncInProgress = false
 @Field static final asyncLock = new Object[0]
@@ -45,6 +46,9 @@ preferences {
 
     section("General") {
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
+      input name: "deviceDetails", title: "Device Details", description: "Collects additional device details (Additional authentication is required if the Hub Login Security is Enabled)", type: "enum", options:[[0:"Disabled"], [1:"Enabled"]], defaultValue: 1, required: true
+      input name: "he_usr", title: "HE User", type: "text", description: "Only if Hub Login Security is Enabled", defaultValue: "", required: false
+      input name: "he_pwd", title: "HE Password", type: "password", description: "Only if Hub Login Security is Enabled", defaultValue: "", required: false
     }
 
     section ("Destination") {
@@ -153,6 +157,7 @@ def uninstalled() {
 
 def updated() {
   logger("debug", "updated()")
+  unschedule()
 
   state.deviceAttributes = []
   state.deviceAttributes << [ devices: 'accelerationSensor', attributes: ['acceleration']]
@@ -214,6 +219,9 @@ def updated() {
   state.deviceAttributes << [ devices: 'windowShade', attributes: ['windowShade', 'position']]
   state.deviceAttributes << [ devices: 'pHMeasurement', attributes: ['pH']]
 
+  // get device inventory
+  if (deviceDetails.toInteger()) { deviceInventory() }
+
   // Configure Scheduling:
   manageSchedules()
 
@@ -221,6 +229,7 @@ def updated() {
   manageSubscriptions()
 
   schedule("0 0 12 */7 * ?", updateCheck)
+  if (deviceDetails.toInteger()) { schedule("0 0 * ? * *", deviceInventory) }
 }
 
 def handleEvent(evt) {
@@ -233,15 +242,32 @@ def handleEvent(evt) {
     def hub = location.hubs[0]
 
     def metric = evt.name
-    // labels:
-    def device_id = escapeCharacters(evt.deviceId)
+    Integer device_id = escapeCharacters(evt.deviceId).toInteger()
     def device_name = escapeCharacters(evt.displayName)
     def groupId = escapeCharacters(evt?.device.device.groupId)
     def hub_id = escapeCharacters(hub?.id)
     def hub_name = escapeCharacters(hub?.name)
     def hub_ip = escapeCharacters(hub?.localIP)
 
-    // def unit = escapeCharacters(evt.unit)
+    if (deviceDetails.toInteger()) {
+      if(deviceData?.size() > 0 && deviceData?.containsKey(device_id)) {
+        Map labels = [hub_name: hub_name,
+                      hub_ip: hub_ip,
+                      device_id: device_id,
+                      device_id_net: escapeCharacters(deviceData[device_id].deviceNetworkId),
+                      device_name: device_name,
+                      device_label: escapeCharacters(deviceData[device_id].label),
+                      device_driver: escapeCharacters(deviceData[device_id].deviceTypeName),
+                      device_driver_type: escapeCharacters(deviceData[device_id].type)
+        ]
+
+        String device_inventory = "hub_info,${labels.collect{ k,v -> "$k=$v" }.join(',')} value=1"
+        pushMetric(device_inventory)
+      } else {
+        logger("warn", "handleEvent() - Device not found in the inventory device_id:${device_id},  device_name:${evt?.name}, device_label:${evt?.displayName}")
+      }
+    }
+
     def value = escapeCharacters(evt.value)
 
     String data = "${metric},hub_name=${hub_name},hub_ip=${hub_ip},device_id=${device_id},device_name=${device_name}"
@@ -439,7 +465,6 @@ def manualPoll() {
             handleEvent([
               name: attr,
               value: d.latestState(attr)?.value,
-              // unit: d.latestState(attr)?.unit,
               device: d,
               deviceId: d.id,
               displayName: d.displayName
@@ -511,6 +536,65 @@ private escapeCharacters(str) {
     str = str.trim() // Trim end spaces
   }
   return str
+}
+
+
+private void loginHE() {
+  if (state.authToken != "") { return }
+
+  try {
+    state.authToken = ''
+    Map params = [
+      uri: 'http://localhost:8080',
+      path: '/login',
+      ignoreSSLIssues:  true,
+      requestContentType: 'application/x-www-form-urlencoded',
+      body: [username: "syepes", password: '***REMOVED***']
+    ]
+
+    httpPost(params) { resp ->
+      if (resp.getStatus() == 302) {
+        resp.getHeaders('Set-Cookie').each {
+          state.authToken = state.authToken + it.value.split(';')[0] + ';'
+        }
+      } else {
+        state.authToken = ''
+      }
+    }
+  } catch (e) {
+    logger("error", "loginHE() - Error: ${e}")
+  }
+}
+
+void deviceInventory() {
+  if (he_usr != "" && he_pwd != "") { loginHE() }
+
+  try {
+    Map headers = ['Content-Type': 'application/json;charset=UTF-8', 'Host': 'localhost']
+    if (he_usr != "" && he_pwd != "") { headers['Cookie'] = state.authToken }
+
+    Map params = [
+      uri: 'http://localhost:8080',
+      path: '/device/list/all/data',
+      contentType: "application/json; charset=utf-8",
+      requestContentType: "application/json; charset=utf-8",
+      headers: headers
+    ]
+
+    deviceData = [:]
+    httpGet(params) { resp ->
+      logger("trace", "deviceInventory() - Status: ${resp?.getStatus()} / Data: ${resp?.getData()}")
+
+      if (resp.getStatus() == 200) {
+        def inv = resp.getData()
+        inv?.each { deviceData[it.id] = it }
+        logger("info", "Device inventory: ${deviceData?.size()}")
+      }
+    }
+  } catch (e) {
+    if (he_usr != "" && he_pwd != "") { state.authToken = '' }
+    logger("error", "deviceInventory() - Error: ${e}")
+  }
 }
 
 /**

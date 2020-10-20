@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.0"
+@Field String VERSION = "1.1.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -210,6 +210,15 @@ def parse(String description) {
   result
 }
 
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalGet cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalGet) - cmd: ${cmd.inspect()}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalReport cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalReport) - cmd: ${cmd.inspect()}")
+  logger("info", "Device wakup interval: ${cmd.seconds}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
   logger("trace", "zwaveEvent(WakeUpNotification) - cmd: ${cmd.inspect()}")
   logger("info", "Device woke up")
@@ -256,12 +265,13 @@ def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpNotification cmd) {
       zwave.powerlevelV1.powerlevelGet(),
       zwave.versionV2.versionGet(),
       zwave.firmwareUpdateMdV2.firmwareMdGet(),
-      zwave.manufacturerSpecificV1.manufacturerSpecificGet()
+      zwave.manufacturerSpecificV1.manufacturerSpecificGet(),
+      zwave.wakeUpV2.wakeUpIntervalGet()
     ], 100)
   }
 
   // Check battery level only once every Xh
-  if (batteryCheckInterval) {
+  if (batteryCheckInterval.toInteger()){
     if (!state?.deviceInfo?.lastbatt || now() - state.deviceInfo.lastbatt >= batteryCheckInterval?.toInteger() *60*60*1000) {
       cmds = cmds + cmdSequence([zwave.batteryV1.batteryGet()], 100)
     }

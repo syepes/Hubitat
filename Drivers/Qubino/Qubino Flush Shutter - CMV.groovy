@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -39,6 +39,7 @@ metadata {
 
     fingerprint mfr:"0159", prod:"0003", model: "0001", deviceJoinName: "Qubino Flush Shutter"
     fingerprint deviceId:"0052", inClusters:"0x5E,0x5A,0x73,0x98,0x86,0x72,0x27,0x25,0x26,0x32,0x71,0x85,0x8E,0x59,0x70", outClusters:"0x26" // ZMNHCD1 868,4 MHz - EU)
+    fingerprint deviceId:"0052", inClusters:"0x5E,0x5A,0x73,0x98" // ZMNHCD1 868,4 MHz - EU)
   }
 
   preferences {
@@ -144,7 +145,7 @@ def configure() {
 
   schedule("0 0 12 */7 * ?", updateCheck)
 
-  if (stateCheckInterval) {
+  if (stateCheckInterval.toInteger()) {
     if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
       schedule("0 */${stateCheckInterval} * ? * *", checkState)
     } else {

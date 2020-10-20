@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
+# pip3 install bluepy tendo
 import sys
 import urllib.request
 import base64
@@ -12,6 +13,8 @@ from mijia.mijia_v2_poller import MijiaV2Poller, MI_HUMIDITY, MI_TEMPERATURE, MI
 import requests
 import logging
 from logging.handlers import RotatingFileHandler
+from tendo import singleton
+me = singleton.SingleInstance()
 
 # Configuration des logs
 logger = logging.getLogger()
@@ -25,6 +28,7 @@ steam_handler = logging.StreamHandler()
 steam_handler.setLevel(logging.INFO)
 steam_handler.setFormatter(formatter)
 logger.addHandler(steam_handler)
+
 
 # Create virtual sensors in dummy hardware
 try:
