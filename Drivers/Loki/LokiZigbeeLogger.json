@@ -1,0 +1,19 @@
+{
+  "packageName": "LokiZigbeeLogger",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "version": "1.0.1",
+  "dateReleased": "2020-09-01",
+  "documentationLink": "",
+  "communityLink": "",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "drivers": [
+    {
+      "name": "LokiZigbeeLogger",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiZigbeeLogger.groovy",
+      "required": true
+    }
+  ]
+}

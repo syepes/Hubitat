@@ -1,0 +1,19 @@
+{
+  "packageName": "Aeotec Heavy Duty Smart Switch",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "version": "1.1.1",
+  "dateReleased": "2020-09-01",
+  "documentationLink": "",
+  "communityLink": "https://community.hubitat.com/t/release-aeotec-heavy-duty-smart-switch/32951/1",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "drivers": [
+    {
+      "name": "Aeotec Heavy Duty Smart Switch",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Heavy%20Duty%20Smart%20Switch.groovy",
+      "required": true
+    }
+  ]
+}
