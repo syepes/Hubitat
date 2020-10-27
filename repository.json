@@ -1,0 +1,217 @@
+{
+  "author": "Sebastian YEPES FERNANDEZ",
+  "gitHubUrl": "https://github.com/syepes/Hubitat/",
+  "payPalUrl": "https://paypal.me/syepesf?locale.x=en_US",
+  "packages": [
+    {
+      "name": "LG WebOS TV",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/LG/LG%20WebOS%20TV%20Discovery.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Multimedia"
+      ]
+    },
+    {
+      "name": "Netatmo",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Cloud",
+        "Safety & Security"
+      ]
+    },
+    {
+      "name": "MetricLogger",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/VictoriaMetrics/MetricLogger.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Monitoring",
+        "Tools & Utilities"
+      ]
+    },
+    {
+      "name": "Aeotec Heavy Duty Smart Switch",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Heavy%20Duty%20Smart%20Switch.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Lights & Switches"
+      ]
+    },
+    {
+      "name": "Aeotec MultiSensor 6",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20MultiSensor%206.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Multi Sensors"
+      ]
+    },
+    {
+      "name": "Aeotec Water Sensor 6",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Water%20Sensor%206.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Multi Sensors"
+      ]
+    },
+    {
+      "name": "Fibaro Smoke Sensor",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Safety & Security"
+      ]
+    },
+    {
+      "name": "Z-Wave Range Extender",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Generic/Z-Wave%20Repeater.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Repeaters & Extenders"
+      ]
+    },
+    {
+      "name": "Heatit Z-Temp2",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Heatit/Heatit%20Z-Temp2.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Temperature & Humidity"
+      ]
+    },
+    {
+      "name": "LokiLogLogger",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiLogLogger.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Monitoring",
+        "Tools & Utilities"
+      ]
+    },
+    {
+      "name": "LokiZWaveLogger",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiZWaveLogger.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "ZWave",
+        "Monitoring",
+        "Tools & Utilities"
+      ]
+    },
+    {
+      "name": "LokiZigbeeLogger",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiZigbeeLogger.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Zigbee",
+        "Monitoring",
+        "Tools & Utilities"
+      ]
+    },
+    {
+      "name": "Popp Electric Strike Lock Control",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Popp/Popp%20Electric%20Strike%20Lock%20Control.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Locks"
+      ]
+    },
+    {
+      "name": "Popp Z-Rain Sensor",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Popp/Popp%20Z-Rain%20Sensor.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Weather",
+        "Water"
+      ]
+    },
+    {
+      "name": "Qubino Flush Pilot Wire",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Pilot%20Wire.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Lights & Switches"
+      ]
+    },
+    {
+      "name": "Qubino Flush Shutter - CMV",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Shutter%20-%20CMV.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Lights & Switches"
+      ]
+    },
+    {
+      "name": "Schwaiger Temperature Sensor",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Schwaiger/Schwaiger%20Temperature%20Sensor.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Temperature & Humidity"
+      ]
+    },
+    {
+      "name": "Sonoff RF Bridge",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "IR & RF",
+        "Window Coverings",
+        "Lights & Switches"
+      ]
+    },
+    {
+      "name": "Xiaomi Mijia",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Xiaomi/Xiaomi%20Mijia.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Temperature & Humidity"
+      ]
+    },
+    {
+      "name": "Zipato Mini RFID Keypad",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Zipato/Zipato%20Mini%20RFID%20Keypad.json",
+      "description": "",
+      "category": "Utility",
+      "tags": [
+        "ZWave",
+        "Safety & Security"
+      ]
+    }
+  ]
+}

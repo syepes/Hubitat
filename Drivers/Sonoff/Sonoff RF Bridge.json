@@ -1,0 +1,31 @@
+{
+  "packageName": "Sonoff RF Bridge",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "version": "1.0.2",
+  "dateReleased": "2020-09-01",
+  "documentationLink": "",
+  "communityLink": "https://community.hubitat.com/t/release-sonoff-rf-433mhz-bridge/32959/1",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "drivers": [
+    {
+      "name": "Sonoff RF Bridge",
+      "namespace": "syepes",
+      "location": "https://github.com/syepes/Hubitat/blob/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.groovy",
+      "required": true
+    },
+    {
+      "name": "Sonoff RF Bridge - Shade Child Device",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge%20-%20Shade%20Child%20Device.groovy",
+      "required": true
+    },
+    {
+      "name": "Sonoff RF Bridge - Switch Child Device",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge%20-%20Switch%20Child%20Device.groovy",
+      "required": true
+    }
+  ]
+}

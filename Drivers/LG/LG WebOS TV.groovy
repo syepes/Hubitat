@@ -21,9 +21,7 @@ import groovy.transform.Field
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
-
 @Field static Map callbacks = [:]
-
 
 metadata {
   definition (name: "LG WebOS TV", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/LG/LG%20WebOS%20TV.groovy") {
@@ -563,11 +561,11 @@ def handler_getChannelProgramInfo(data) {
   }
 
   def lastChannel = [
-    description: "${data.channel.channelNumber}/${data.channel.channelName}",
-    number: data.channel.channelNumber,
-    majorNumber: data.channel.majorNumber ?: data.channel.channelNumber,
+    description: "${data.channel?.channelNumber}/${data.channel?.channelName}",
+    number: data.channel?.channelNumber,
+    majorNumber: data.channel.majorNumber ?: data.channel?.channelNumber,
     minorNumber: data.channel.minorNumber ?: 0,
-    name: data.channel.channelName ?: "",
+    name: data.channel?.channelName ?: "",
   ]
 
   state.lastChannel = lastChannel

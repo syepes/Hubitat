@@ -27,7 +27,7 @@ services:
       - "-influxSkipSingleField"
       - "-selfScrapeInterval=30s"
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:2.0.0
     container_name: loki
     hostname: loki
     restart: always
@@ -37,12 +37,14 @@ services:
     ports:
       - 3100:3100/tcp
     volumes:
-      - ./cfg/loki.yml:/loki.yml
+      - ./cfg/loki.yml:/etc/loki/local-config.yaml
       - ./data/loki:/data
     command:
-      - "-config.file=/loki.yml"
+      - "-config.file=/etc/loki/local-config.yaml"
       - "-log.level=info"
       - "-log.format=logfmt"
+    security_opt:
+      - seccomp:unconfined
   grafana:
     image: grafana/grafana:latest
     container_name: grafana

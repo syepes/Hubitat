@@ -1,0 +1,19 @@
+{
+  "packageName": "Heatit Z-Temp2",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "version": "1.1.1",
+  "dateReleased": "2020-09-01",
+  "documentationLink": "",
+  "communityLink": "https://community.hubitat.com/t/release-heatit-z-temp-2-thermostat/49430/1",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "drivers": [
+    {
+      "name": "Heatit Z-Temp2",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Heatit/Heatit%20Z-Temp2.groovy",
+      "required": true
+    }
+  ]
+}

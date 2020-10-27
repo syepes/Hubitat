@@ -1,0 +1,34 @@
+{
+  "packageName": "LG WebOS TV Discovery",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "version": "1.0.0",
+  "dateReleased": "2020-09-01",
+  "documentationLink": "",
+  "communityLink": "",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "apps": [
+    {
+      "name": "LG WebOS TV Discovery",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/LG/LG%20WebOS%20TV%20Discovery.groovy",
+      "required": true,
+      "primary": true
+    }
+  ],
+  "drivers": [
+    {
+      "name": "LG WebOS TV",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/LG/LG%20WebOS%20TV.groovy",
+      "required": true
+    },
+    {
+      "name": "LG WebOS Mouse",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/LG/LG%20WebOS%20Mouse.groovy",
+      "required": true
+    }
+  ]
+}
