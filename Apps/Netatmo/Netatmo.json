@@ -2,8 +2,7 @@
   "packageName": "Netatmo",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "version": "1.2.1",
-  "dateReleased": "2020-09-01",
+  "dateReleased": "2020-10-28",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-netatmo/32958/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -13,6 +12,7 @@
       "name": "Netatmo",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo.groovy",
+      "version": "1.2.1",
       "required": true,
       "oauth": true,
       "primary": true
@@ -23,30 +23,35 @@
       "name": "Netatmo - Doorbell",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Doorbell.groovy",
+      "version": "1.0.1",
       "required": true
     },
     {
       "name": "Netatmo - Person",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Person.groovy",
+      "version": "1.0.1",
       "required": true
     },
     {
       "name": "Netatmo - Presence",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Presence.groovy",
+      "version": "1.0.2",
       "required": true
     },
     {
       "name": "Netatmo - Sensor",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Sensor.groovy",
+      "version": "1.0.1",
       "required": true
     },
     {
       "name": "Netatmo - Welcome",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Welcome.groovy",
+      "version": "1.0.2",
       "required": true
     }
   ]

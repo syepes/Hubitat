@@ -2,8 +2,7 @@
   "packageName": "Xiaomi Mijia",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "version": "1.0.2",
-  "dateReleased": "2020-09-01",
+  "dateReleased": "2020-10-28",
   "documentationLink": "",
   "communityLink": "",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -13,12 +12,14 @@
       "name": "Xiaomi Mijia",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Xiaomi/Xiaomi%20Mijia.groovy",
+      "version": "1.0.2",
       "required": true
     },
     {
       "name": "Xiaomi Mijia - Sensor Temperature Humidity Child Device",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Xiaomi/Xiaomi%20Mijia%20-%20Sensor%20Temperature%20Humidity%20Child%20Device.groovy",
+      "version": "1.0.1",
       "required": true
     }
   ]

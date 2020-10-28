@@ -2,8 +2,7 @@
   "packageName": "Qubino Flush Pilot Wire",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "version": "1.1.1",
-  "dateReleased": "2020-09-01",
+  "dateReleased": "2020-10-28",
   "documentationLink": "",
   "communityLink": "",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -13,6 +12,7 @@
       "name": "Qubino Flush Pilot Wire",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Pilot%20Wire.groovy",
+      "version": "1.1.1",
       "required": true
     }
   ]

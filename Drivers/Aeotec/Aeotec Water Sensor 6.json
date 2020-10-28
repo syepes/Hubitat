@@ -2,8 +2,7 @@
   "packageName": "Aeotec Water Sensor 6",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "version": "1.1.1",
-  "dateReleased": "2020-09-01",
+  "dateReleased": "2020-10-28",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-aeotec-water-sensor-6/34269/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -13,6 +12,7 @@
       "name": "Aeotec Water Sensor 6",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Water%20Sensor%206.groovy",
+      "version": "1.1.1",
       "required": true
     }
   ]
