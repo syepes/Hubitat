@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.1"
+@Field String VERSION = "1.1.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -560,7 +560,7 @@ private isSecured() {
 
 private getCommandClassVersions() {
   return [0x5E: 1, // COMMAND_CLASS_ZWAVEPLUS_INFO (Insecure)
-          0x86: 1, // COMMAND_CLASS_VERSION (Insecure)
+          0x86: 2, // COMMAND_CLASS_VERSION (Insecure)
           0x72: 2, // COMMAND_CLASS_MANUFACTURER_SPECIFIC (Insecure)
           0x5A: 1, // COMMAND_CLASS_DEVICE_RESET_LOCALLY (Insecure)
           0x73: 1, // COMMAND_CLASS_POWERLEVEL (Insecure)

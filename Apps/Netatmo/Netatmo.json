@@ -12,7 +12,7 @@
       "name": "Netatmo",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo.groovy",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "required": true,
       "oauth": true,
       "primary": true
@@ -41,6 +41,13 @@
       "required": true
     },
     {
+      "name": "Netatmo - Welcome",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Welcome.groovy",
+      "version": "1.0.2",
+      "required": true
+    },
+    {
       "name": "Netatmo - Sensor",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Sensor.groovy",
@@ -48,10 +55,10 @@
       "required": true
     },
     {
-      "name": "Netatmo - Welcome",
+      "name": "Netatmo - Smoke Alarm",
       "namespace": "syepes",
-      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Welcome.groovy",
-      "version": "1.0.2",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Smoke%20Alarm.groovy",
+      "version": "1.0.0",
       "required": true
     }
   ]

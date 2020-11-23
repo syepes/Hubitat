@@ -563,16 +563,16 @@ def handler_getChannelProgramInfo(data) {
   def lastChannel = [
     description: "${data.channel?.channelNumber}/${data.channel?.channelName}",
     number: data.channel?.channelNumber,
-    majorNumber: data.channel.majorNumber ?: data.channel?.channelNumber,
-    minorNumber: data.channel.minorNumber ?: 0,
+    majorNumber: data?.channel?.majorNumber ?: data.channel?.channelNumber,
+    minorNumber: data?.channel?.minorNumber ?: 0,
     name: data.channel?.channelName ?: "",
   ]
 
   state.lastChannel = lastChannel
   sendEvent(name: "channelDesc", value: lastChannel.description)
   // This is defined as a number, not a decimal so send the major number
-  def descriptionText = "full channel number is ${lastChannel.majorNumber}-${lastChannel.minorNumber}"
-  sendEvent(name: "channel", value: lastChannel.majorNumber)
+  def descriptionText = "full channel number is ${lastChannel?.majorNumber}-${lastChannel?.minorNumber}"
+  sendEvent(name: "channel", value: lastChannel?.majorNumber)
   logger("info", "${descriptionText}")
 
   descriptionText = "channelName is ${lastChannel.name}"
