@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.2.1"
+@Field String VERSION = "1.2.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -24,7 +24,7 @@ import com.hubitat.app.ChildDeviceWrapper
 private getApiUrl() { "https://api.netatmo.com" }
 private getVendorAuthPath() { "/oauth2/authorize" }
 private getVendorTokenPath(){ "${apiUrl}/oauth2/token" }
-private getScope() { "read_home write_home read_camera write_camera access_camera read_presence write_presence access_presence read_doorbell write_doorbell access_doorbell read_station read_thermostat write_thermostat read_smokedetector write_smokedetector read_homecoach write_homecoach" }
+private getScope() { "read_home write_home read_camera write_camera access_camera read_presence write_presence access_presence read_doorbell write_doorbell access_doorbell read_station write_station read_thermostat write_thermostat read_smokedetector write_smokedetector read_homecoach write_homecoach read_june write_june access_velux read_velux write_velux read_muller write_muller read_smarther write_smarther read_magellan write_magellan" }
 private getClientId() { settings.clientId }
 private getClientSecret() { settings.clientSecret }
 private getServerUrl() { getFullApiServerUrl() }
@@ -57,7 +57,7 @@ mappings {
 
 def installed() {
   logger("debug", "installed(${VERSION})")
-  if (state.driverInfo == null || state.driverInfo.isEmpty()) {
+  if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
     state.driverInfo = [ver:VERSION, status:'Current version']
   }
   state.initialSetup = false
@@ -119,6 +119,10 @@ def initialize() {
         case 'NACamDoorTag':
           logger("info", "Creating device: Door and Window Sensor (${detail?.type}) - ${detail.name}/${detail.cameraName}/${detail.homeName}")
           createChildDevice("Netatmo - Sensor", detail)
+        break
+        case 'NSD':
+          logger("info", "Creating device: Smart Smoke Alarm (${detail?.type}) - ${detail.name}/${detail.homeName}")
+          createChildDevice("Netatmo - Smoke Alarm", detail)
         break
         default:
           logger("warn", "initialize() - Unsupported Device (${detail?.type}) - ${detail}")
@@ -188,6 +192,13 @@ def checkState() {
       child?.sendEvent(name:'battery', value: data['battery_percent'])
       child?.sendEvent(name:'rf', value: data['rf'])
       child?.sendEvent(name:'last_activity', value: data['last_activity'])
+
+      // Smoke
+      child = cd_devices?.find { it.deviceNetworkId == deviceId && data['type']?.matches("^(NSD)\$") }
+      child?.sendEvent(name:'switch', value: data['status'] =~ /^(connected|on)/ ? 'on' : 'off')
+      child?.sendEvent(name:'status', value: data['status'])
+      child?.sendEvent(name:'battery', value: data['battery_percent'])
+
     } else {
       logger("warn", "checkState() - Could not find device ${deviceId} state")
     }
@@ -428,7 +439,7 @@ def webhook() {
         case 'tag_uninstalled':
         break
         default:
-          logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_module}")
+          logger("warn", "webhook() - Unhandled by ${cd_module} - event_type: ${payload?.event_type} - payload: ${payload}")
         break
       }
 
@@ -516,7 +527,7 @@ def webhook() {
           }
         break
         default:
-          logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_camera}")
+          logger("warn", "webhook() - Unhandled by ${cd_camera} - event_type: ${payload?.event_type} - payload: ${payload}")
         break
       }
     }
@@ -581,7 +592,7 @@ def webhook() {
           cd_camera?.motion(payload?.snapshot_url)
         break
         default:
-          logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_camera}")
+          logger("warn", "webhook() - Unhandled by ${cd_camera} - event_type: ${payload?.event_type} - payload: ${payload}")
         break
       }
     }
@@ -589,9 +600,9 @@ def webhook() {
     // Doorbell
     if (payload?.push_type?.startsWith('NDB')) {
       String doorbellID = payload?.device_id
-      ChildDeviceWrapper cd_doorbel = cd_devices?.find { it.deviceNetworkId == doorbellID }
+      ChildDeviceWrapper cd_doorbell = cd_devices?.find { it.deviceNetworkId == doorbellID }
 
-      if (!cd_doorbel) {
+      if (!cd_doorbell) {
         logger("warn", "webhook() - Local Doorbell: ${doorbellID} (${payload?.home_id}) not found")
       }
 
@@ -599,69 +610,137 @@ def webhook() {
       switch( payload?.message ) {
         case ~/.*Incoming call.*|.*Appel entrant.*/:
           if(logDescText) {
-            log.info "${app.name} ${cd_doorbel} Call/Ring: Incoming"
+            log.info "${app.name} ${cd_doorbell} Call/Ring: Incoming"
           } else {
-            logger("info", "${cd_doorbel} Call/Ring: Incoming")
+            logger("info", "${cd_doorbell} Call/Ring: Incoming")
           }
-          cd_doorbel?.ring('incoming')
+          cd_doorbell?.ring('incoming')
         break
         case ~/.*Someone picked up.*|.*Quelqu’un a accepté l’appel.*/:
           if(logDescText) {
-            log.info "${app.name} ${cd_doorbel} Call/Ring: Accepted"
+            log.info "${app.name} ${cd_doorbell} Call/Ring: Accepted"
           } else {
-            logger("info", "${cd_doorbel} Call/Ring: Accepted")
+            logger("info", "${cd_doorbell} Call/Ring: Accepted")
           }
-          cd_doorbel?.ring('accepted')
+          cd_doorbell?.ring('accepted')
         break
         default:
-          logger("warn", "webhook() - event_type: ${payload} - Unhandled by ${cd_doorbel}")
+          logger("warn", "webhook() - Unhandled by ${cd_doorbell} - payload: ${payload}")
         break
       }
 
       /* accepted_call,
       switch (payload?.event_type) {
         case 'on':
-          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell switched on by ${cd_doorbel}")
-          cd_doorbel?.on()
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell switched on by ${cd_doorbell}")
+          cd_doorbell?.on()
         break
         case 'off':
-          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell switched off by ${cd_doorbel}")
-          cd_doorbel?.off()
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell switched off by ${cd_doorbell}")
+          cd_doorbell?.off()
         break
         case 'connection':
-          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell connection on by ${cd_doorbel}")
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell connection on by ${cd_doorbell}")
           if(logDescText) {
-            log.info "${app.name} ${cd_doorbel} is connected"
+            log.info "${app.name} ${cd_doorbell} is connected"
           } else {
-            logger("info", "${cd_doorbel} is connected")
+            logger("info", "${cd_doorbell} is connected")
           }
-          // cd_doorbel?.sendEvent(name:'switch', value: payload?.event_type)
+          // cd_doorbell?.sendEvent(name:'switch', value: payload?.event_type)
         break
         case 'disconnection':
-          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell disconnection by ${cd_doorbel}")
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell disconnection by ${cd_doorbell}")
           if(logDescText) {
-            log.info "${app.name} ${cd_doorbel} is disconnected"
+            log.info "${app.name} ${cd_doorbell} is disconnected"
           } else {
-            logger("info", "${cd_doorbel} is disconnected")
+            logger("info", "${cd_doorbell} is disconnected")
           }
-          // cd_doorbel?.sendEvent(name:'switch', value: payload?.event_type)
+          // cd_doorbell?.sendEvent(name:'switch', value: payload?.event_type)
         break
         case 'movement':
-          logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected by ${cd_doorbel}")
-          // cd_doorbel?.motion(payload?.snapshot_url)
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected by ${cd_doorbell}")
+          // cd_doorbell?.motion(payload?.snapshot_url)
         break
         default:
-          // logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_doorbel}")
-          logger("warn", "webhook() - event_type: ${payload} - Unhandled by ${cd_doorbel}")
+          // logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_doorbell}")
+          logger("warn", "webhook() - event_type: ${payload} - Unhandled by ${cd_doorbell}")
         break
       }
       */
     }
 
+
+    // Smoke
+    if (payload?.push_type?.startsWith('NSD')) {
+      String deviceID = payload?.device_id
+      ChildDeviceWrapper cd_device = cd_devices?.find { it.deviceNetworkId == deviceID }
+
+      if (!cd_device) {
+        logger("warn", "webhook() - Local Smoke Alarm: ${deviceID} (${payload?.home_name}) not found")
+      }
+
+      switch (payload?.event_type) {
+        case 'connection':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Smoke Alarm connection on by ${cd_device}")
+          if(logDescText) {
+            log.info "${app.name} ${cd_device} is connected"
+          } else {
+            logger("info", "${cd_device} is connected")
+          }
+          cd_device?.sendEvent(name:'switch', value: 'on')
+          cd_device?.sendEvent(name:'status', value: payload?.event_type)
+        break
+        case 'disconnection':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Smoke Alarm disconnection by ${cd_device}")
+          if(logDescText) {
+            log.info "${app.name} ${cd_device} is disconnected"
+          } else {
+            logger("info", "${cd_device} is disconnected")
+          }
+          cd_device?.sendEvent(name:'switch', value: 'off')
+          cd_device?.sendEvent(name:'status', value: payload?.event_type)
+        break
+        case 'hush':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Smoke Alarm hushed by ${cd_device}")
+          if(logDescText) {
+            log.info "${app.name} ${cd_device} Alarm hushed for 15 min"
+          } else {
+            logger("info", "${cd_device} Alarm hushed for 15 min")
+          }
+        break
+        case 'smoke':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Alarm ${payload?.sub_type == 0 ? 'cleared' : 'detected'} by ${cd_device}")
+          cd_device?.smoke(payload?.sub_type)
+        break
+        case 'battery_status':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Battery level (${payload?.sub_type}) by ${cd_device}")
+          cd_device?.battery(payload?.sub_type)
+        break
+        case 'wifi_status':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Wifi Status (${payload?.sub_type == 0 ? 'error' : 'ok'}) by ${cd_device}")
+          if(logDescText) {
+            log.info "${app.name} ${cd_device} Wifi ${payload?.sub_type == 0 ? 'error' : 'ok'}"
+          } else {
+            logger("info", "${cd_device} Wifi ${payload?.sub_type == 0 ? 'error' : 'ok'}")
+          }
+        break
+        case 'sound_test':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Sound Test (${payload?.sub_type == 0 ? 'ok' : 'error'}) by ${cd_device}")
+          if(logDescText) {
+            log.info "${app.name} ${cd_device} Sound Test ${payload?.sub_type == 0 ? 'ok' : 'error'}"
+          } else {
+            logger("info", "${cd_device} Sound Test ${payload?.sub_type == 0 ? 'ok' : 'error'}")
+          }
+        break
+        default:
+          logger("warn", "webhook() - Unhandled by ${cd_device} - event_type: ${payload?.event_type} - payload: ${payload}")
+        break
+      }
+    }
+
   } catch(Exception e){
     logger("debug", "webhook() - Request Exception: ${e.inspect()}")
   }
-
 
   return resp
 }

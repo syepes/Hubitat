@@ -15,7 +15,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.0"
+@Field String VERSION = "1.1.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -147,7 +147,10 @@ preferences {
 
 def installed() {
   logger("debug", "installed(${VERSION}) - settings: ${settings}")
-  schedule("0 0 12 */7 * ?", updateCheck)
+  if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
+    state.driverInfo = [ver:VERSION, status:'Current version']
+  }
+  updated()
 }
 
 def uninstalled() {
@@ -157,6 +160,13 @@ def uninstalled() {
 
 def updated() {
   logger("debug", "updated()")
+
+  if (!state.driverInfo?.ver || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
+    if (state.driverInfo == null || state.driverInfo.isEmpty()) {
+      state.driverInfo = [ver:VERSION, status:'Current version']
+    }
+  }
+
   unschedule()
 
   state.deviceAttributes = []
@@ -250,7 +260,10 @@ def handleEvent(evt) {
     def hub_ip = escapeCharacters(hub?.localIP)
 
     if (deviceDetails.toInteger()) {
-      if(deviceData?.size() > 0 && deviceData?.containsKey(device_id)) {
+      if(deviceData?.size() == 0) {
+        deviceInventory()
+      }
+      if(deviceData?.size() > 0 && deviceData?.containsKey(device_id)) {deviceDetails
         Map labels = [hub_name: hub_name,
                       hub_ip: hub_ip,
                       device_id: device_id,
@@ -433,8 +446,8 @@ void metricResponse(hubResponse, payload) {
       sendQueue << payload?.message
       String errData = hubResponse.getErrorData()
       String errMsg = hubResponse.getErrorMessage()
-      logger("warn", "Failed Sending Metrics - Response: ${hubResponse?.status}, QueueSize: ${sendQueue?.size()}")
-      logger("trace", "metricResponse() - Response: ${hubResponse?.status}, Headers: ${hubResponse?.headers}, Error: ${errData} ${errMfg}")
+      logger("warn", "Failed Sending Metrics - QueueSize: ${sendQueue?.size()}, Response: ${hubResponse?.status}, Error: ${errData} ${errMfg}")
+      logger("trace", "metricResponse() - API: http://${ip}:${port}/write?precision=ms, Response: ${hubResponse.status}, Error: ${errData} ${errMfg}, Headers: ${hubResponse?.headers}, Payload: ${payload}")
       if (sendQueue?.size() >= queueMaxSize) {
         logger("error", "Maximum Queue size reached: ${sendQueue?.size()} >= ${queueMaxSize}, all current logs have been droped")
         sendQueue = []

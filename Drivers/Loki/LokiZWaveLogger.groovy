@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -47,16 +47,47 @@ metadata {
   }
 }
 
-void installed() {
+def installed() {
   logger("debug", "installed(${VERSION})")
+
+  if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
+    state.driverInfo = [ver:VERSION, status:'Current version']
+  }
+
+  if (state.deviceInfo == null) {
+    state.deviceInfo = [:]
+  }
+
   updated()
 }
 
 void updated() {
   logger("debug", "updated()")
+
+  if (!state.driverInfo?.ver || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
+    installed()
+  }
+
   initialize()
   if (deviceDetails.toInteger()) { deviceInventory() }
 }
+
+/*
+{ "seqNo":1,
+  "name":"Lamp",
+  "id":"09",
+  "imeReport":{
+    "0":[ 0 ],
+    "1":[ 0, 5 ],
+    "2":[ 28, 0, 0, 0, 2 ],
+    "3":[ -90, -35, 127, 127, 127 ],
+    "4":[ 1 ],
+    "5":[ 1 ]
+  },
+  "time":"2020-11-23 20:30:16.477",
+  "type":"zwaveRx"
+}
+*/
 
 void parse(String description) {
   def descData = new JsonSlurper().parseText(description)
@@ -93,6 +124,9 @@ void parse(String description) {
         ]
 
         if (deviceDetails.toInteger()) {
+          if(deviceData?.size() == 0) {
+            deviceInventory()
+          }
           if(deviceData?.size() > 0 && deviceData?.containsKey(descData.id)) {
             labels['device_id'] = deviceData[descData.id].id
             labels['device_driver'] = deviceData[descData.id].deviceTypeName
@@ -109,7 +143,7 @@ void parse(String description) {
       }
 
     } else {
-      logger("warn", "parse() - Destination IP not set")
+      logger("warn", "parse() - DdeviceInventoryestination IP not set")
     }
   }
 }
@@ -284,7 +318,9 @@ void logResponse(hubResponse, payload) {
       sendQueue = []
 
     } else { // Failed
-      logger("warn", "Failed Sending Logs - Response: ${hubResponse?.status}, QueueSize: ${sendQueue?.size()}")
+      String errData = hubResponse?.getErrorData()
+      String errMsg = hubResponse?.getErrorMessage()
+      logger("warn", "Failed Sending Logs - QueueSize: ${sendQueue?.size()}, Response: ${hubResponse?.status}, Error: ${errData} ${errMfg}")
       logger("trace", "logResponse() - API: http://${ip}:${port}/api/prom/push, Response: ${hubResponse.status}, Headers: ${hubResponse?.headers}, Payload: ${payload}")
       if (sendQueue?.size() >= queueMaxSize) {
         logger("error", "Maximum Queue size reached: ${sendQueue?.size()} >= ${queueMaxSize}, all current logs have been droped")

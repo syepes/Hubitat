@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.1"
+@Field String VERSION = "1.1.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -340,28 +340,27 @@ def handleMeterReport(cmd){
       break;
     }
 
+    map.descriptionText = "${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}"
+
     //Check if the value has changed my more than 5%, if so mark as a stateChange
     //map.isStateChange = ((cmd.scaledMeterValue - previousValue).abs() > (cmd.scaledMeterValue * 0.05))
+    if (device.currentValue(map.name) != map.value) {
+      if(logDescText) {
+        log.info "${device.displayName} ${map.descriptionText}"
+      } else if(map?.descriptionText) {
+        logger("info", "${map.descriptionText}")
+      }
+    }
     result << createEvent(map)
-    if(logDescText) { log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
-
-  } else if (cmd.meterType == 2) { // gas
-    logger("debug", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${gasUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
-    Map map = [name: "gas", unit: gasUnits[cmd.scale], value: cmd.scaledMeterValue, displayed: true]
-    result << createEvent(map)
-    if(logDescText) { log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
-
-  } else if (cmd.meterType == 3) { // water
-    logger("debug", "handleMeterReport() - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${waterUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
-    Map map = [name: "water", unit: waterUnits[cmd.scale], value: cmd.scaledMeterValue, displayed: true]
-    result << createEvent(map)
-    if(logDescText) { log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map?.value} ${map?.unit}" }
 
   } else { // meter
     Map map = [name: "meter", descriptionText: cmd.toString()]
     result << createEvent(map)
-    if(logDescText) { log.info "${device.displayName} ${map.name} is ${cmd.toString()}" }
-
+    if(logDescText) {
+      log.info "${device.displayName} ${map.descriptionText}"
+    } else if(map?.descriptionText) {
+      logger("info", "${map.descriptionText}")
+    }
   }
 
   result
@@ -401,9 +400,13 @@ def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
 
   def result = []
   String value = (cmd.value ? "on" : "off")
-  if(logDescText) { log.info "Was turned ${value}" }
-  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
+  if(logDescText) {
+    log.info "${device.displayName} Was turned ${value}"
+  } else if(map?.descriptionText) {
+    logger("info", "Was turned ${value}")
+  }
 
+  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
   result
 }
 
@@ -445,10 +448,12 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
     break;
   }
 
-  if(logDescText && map?.descriptionText) {
-    log.info "${device.displayName} ${map.descriptionText}"
-  } else if(map?.descriptionText) {
-    logger("info", "${map.descriptionText}")
+  if (device.currentValue(map.name) != map.value) {
+    if(logDescText && map?.descriptionText) {
+      log.info "${device.displayName} ${map.descriptionText}"
+    } else if(map?.descriptionText) {
+      logger("info", "${map.descriptionText}")
+    }
   }
   result << createEvent(map)
   result
