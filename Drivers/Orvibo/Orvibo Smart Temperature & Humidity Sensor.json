@@ -1,0 +1,19 @@
+{
+  "packageName": "Orvibo Smart Temperature & Humidity Sensor",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "dateReleased": "2020-11-28",
+  "documentationLink": "",
+  "communityLink": "https://community.hubitat.com/t/release-orvibo-smart-temperature-humidity-sensor/57034/1",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "drivers": [
+    {
+      "name": "Orvibo Smart Temperature & Humidity Sensor",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Orvibo/Orvibo%20Smart%20Temperature%20&%20Humidity%20Sensor.groovy",
+      "version": "1.0.0",
+      "required": true
+    }
+  ]
+}
