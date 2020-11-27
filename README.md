@@ -26,7 +26,7 @@ Netatmo       | [Security - Smart Smoke Detector](https://www.netatmo.com/en-us/
 Netatmo       | [Weather - Smart Home Weather Station](https://www.netatmo.com/en-us/security/cam-outdoor) | WIP (But don't own this device)
 Netatmo       | [Weather - Smart Rain Gauge](https://www.netatmo.com/en-us/security/cam-outdoor) | WIP (But don't own this device)
 Netatmo       | [Weather - Smart Anemometer](https://www.netatmo.com/en-us/security/cam-outdoor) | WIP (But don't own this device)
-ORVIBO        | [Smart Temperature & Humidity Sensor](https://www.orvibo.com/en/product/temp_hum_sensor.html) | ST30 (WIP)
+Orvibo        | [Smart Temperature & Humidity Sensor](https://www.orvibo.com/en/product/temp_hum_sensor.html) | ST30 (Working)
 Qubino        | [Flush Pilot Wire](https://cdn.shopify.com/s/files/1/0066/8149/3559/files/qubino-flush-pilot-wire-plus-user-manual-v1-1-eng.pdf) | ZMNHJD1(Working)
 Qubino        | [Flush Shutter](https://qubino.com/products/flush-shutter/) | ZMNHCD1(Working)<br/>Custom built for CMV / VMC usages: [1](https://www.domo-blog.fr/domotiser-vmc-avec-module-fibaro-fgr-222-223-jeedom/), [2](https://forum.jeedom.com/viewtopic.php?t=46694)
 Schwaiger     | [Thermostat - Temperature Sensor](http://www.schwaiger.de/en/temperature-sensor.html) | ZHD01(Working)
