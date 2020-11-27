@@ -20,7 +20,7 @@ import groovy.transform.Field
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
 
 metadata {
-  definition (name: "Orvibo Smart Temperature & Humidity Sensor", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Orvibo/Orvibo%20Smart%20Temperature%20&%20Humidity%20Sensor.groovy") {
+  definition (name: "Orvibo Smart Temperature & Humidity Sensor", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Orvibo/Orvibo%20Smart%20Temperature%20%26%20Humidity%20Sensor.groovy") {
     capability "Actuator"
     capability "Sensor"
     capability "RelativeHumidityMeasurement"
@@ -260,7 +260,7 @@ private logger(level, msg) {
 }
 
 def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Orvibo/Orvibo%20Smart%20Temperature%20&%20Humidity%20Sensor.groovy"]
+  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Orvibo/Orvibo%20Smart%20Temperature%20%26%20Humidity%20Sensor.groovy"]
   asynchttpGet("updateCheckHandler", params)
 }
 
