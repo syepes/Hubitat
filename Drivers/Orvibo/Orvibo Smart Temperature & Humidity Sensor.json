@@ -11,7 +11,7 @@
     {
       "name": "Orvibo Smart Temperature & Humidity Sensor",
       "namespace": "syepes",
-      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Orvibo/Orvibo%20Smart%20Temperature%20&%20Humidity%20Sensor.groovy",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Orvibo/Orvibo%20Smart%20Temperature%20%26%20Humidity%20Sensor.groovy",
       "version": "1.0.0",
       "required": true
     }
