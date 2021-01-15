@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -42,6 +42,9 @@ metadata {
     attribute "switch_light", "string"
     attribute "homeName", "string"
     attribute "image_tag", "string"
+    attribute "human", "string"
+    attribute "vehicle", "string"
+    attribute "animal", "string"
   }
   preferences {
     section { // General

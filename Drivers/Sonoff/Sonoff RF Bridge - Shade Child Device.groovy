@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -24,7 +24,7 @@ metadata {
     capability "Actuator"
     capability "WindowShade"
     command "stop"
-
+    attribute "switch", "string"
   }
   preferences {
     section { // General

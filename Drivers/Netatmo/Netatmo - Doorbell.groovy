@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -30,6 +30,7 @@ metadata {
     capability "Initialize"
 
     command "motion"
+    command "human"
 
     attribute "ring", "string"
     attribute "status", "string"
@@ -40,15 +41,18 @@ metadata {
     attribute "websocket_connected", "string"
     attribute "homeName", "string"
     attribute "image_tag", "string"
+    attribute "human", "string"
   }
+
   preferences {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
     }
     section { // Snapshots
-      input name: "cameraIP", title: "Camera Local IP", description: "The address of the camera in your local network", type: "text", required: true
+      input name: "doorBellIP", title: "DoorBell Local IP", description: "The address of the DoorBell in your local network", type: "text", required: true
       input name: "ringTimeout", title: "Ring timeout", description: "Ring Status times out after how many seconds", type: "number", range: "0..3600", defaultValue: 60, required: true
+      input name: "motionHumans", title: "HumansAsMotion", description: "Humans detected count as motion", type: "bool", defaultValue: true, required: true
       input name: "motionTimeout", title: "Motion timeout", description: "Motion, Human, Vehicle and Animal detection times out after how many seconds", type: "number", range: "0..3600", defaultValue: 60, required: true
       input name: "scheduledTake", title: "Take a snapshot every", type: "enum", options:[[0:"No snapshots"], [2:"2min"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 0, required: true
     }
@@ -67,6 +71,7 @@ def installed() {
   }
 
   sendEvent(name: "motion", value: "inactive")
+  sendEvent(name: "human", value: "inactive")
   sendEvent(name: "ring", value: "none")
   initialize()
 }
@@ -129,16 +134,30 @@ def off() {
   sendEvent(name: "switch", value: "off")
 }
 
-def ring(String type=null) {
-  logger("debug", "ring()")
+def setHome(homeID,homeName) {
+  logger("debug", "setHome(${homeID?.inspect()}, ${homeName?.inspect()})")
+  state.deviceInfo['homeID'] = homeID
+  sendEvent(name: "homeName", value: homeName)
+}
+
+def setAKey(key) {
+  logger("debug", "setAKey(${key?.inspect()})")
+  state.deviceInfo['accessKey'] = key
+}
+
+def ring(String type=null, String snapshot_url=null) {
+  logger("debug", "ring(${type}, ${snapshot_url})")
   if(logDescText) {
     log.info "${device.displayName} Ring status: ${type}"
   } else {
     logger("info", "Ring status: ${type}")
   }
-  sendEvent(name: "ring", value: type)
 
-  take()
+  sendEvent(name: "ring", value: type)
+  if (snapshot_url != null) {
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="190" height="300">', isStateChange: true, displayed: true)
+  }
+
   if (ringTimeout) {
     startTimer(ringTimeout, cancelRing)
   } else {
@@ -152,15 +171,32 @@ def cancelRing() {
   sendEvent(name: "ring", value: "none")
 }
 
-def setHome(homeID,homeName) {
-  logger("debug", "setHome(${homeID?.inspect()}, ${homeName?.inspect()})")
-  state.deviceInfo['homeID'] = homeID
-  sendEvent(name: "homeName", value: homeName)
+def human(String snapshot_url=null) {
+  logger("debug", "human(${snapshot_url})")
+  if(logDescText) {
+    log.info "${device.displayName} Has detected motion (Human)"
+  } else {
+    logger("info", "Has detected motion (Human)")
+  }
+  sendEvent(name: "human", value: "active", displayed: true)
+  if (snapshot_url != null) {
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="190" height="300">', isStateChange: true, displayed: true)
+  }
+
+  if (motionHumans) {
+    motion(snapshot_url)
+  }
+  if (motionTimeout) {
+    startTimer(motionTimeout, cancelHuman)
+  } else {
+    logger("debug", "human() - Motion timeout has not been set in preferences, using 10 second default")
+    startTimer(10, cancelHuman)
+  }
 }
 
-def setAKey(key) {
-  logger("debug", "setAKey(${key?.inspect()})")
-  state.deviceInfo['accessKey'] = key
+def cancelHuman() {
+  logger("debug", "cancelHuman()")
+  sendEvent(name: "human", value: "inactive")
 }
 
 def motion(String snapshot_url=null) {
@@ -172,7 +208,7 @@ def motion(String snapshot_url=null) {
   }
   sendEvent(name: "motion", value: "active", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="190" height="300">', displayed: true)
   }
 
   if (motionTimeout) {
@@ -191,7 +227,7 @@ def cancelMotion() {
 // TODO: Needs work to actually store the image somewhere
 def take() {
   logger("debug", "take()")
-  if (cameraIP == null || cameraIP == "") {
+  if (doorBellIP == null || doorBellIP == "") {
     logger("error", "take() - Please set camera local LAN IP")
     return
   }
@@ -203,26 +239,16 @@ def take() {
 
   def port = 80
   def path = "/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
-  def hostAddress = "$cameraIP:$port"
+  def hostAddress = "$doorBellIP:$port"
 
   sendEvent(name: "image", value: "http://"+ hostAddress + path, isStateChange: true, displayed: true)
-  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="240" height="190">', isStateChange: true, displayed: true)
+  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="190" height="300">', isStateChange: true, displayed: true)
 }
 
 private startTimer(seconds, function) {
   def now = new Date()
   def runTime = new Date(now.getTime() + (seconds * 1000))
   runOnce(runTime, function) // runIn isn't reliable, use runOnce instead
-}
-
-private String convertIPtoHex(ipAddress) {
-  String hex = ipAddress.tokenize( '.' ).collect {  String.format( '%02x', it.toInteger() ) }.join()
-  return hex
-}
-
-private String convertPortToHex(port) {
-  String hexport = port.toString().format( '%04x', port.toInteger() )
-  return hexport
 }
 
 /**
