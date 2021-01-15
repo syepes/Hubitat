@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.2.2"
+@Field String VERSION = "1.2.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -603,33 +603,10 @@ def webhook() {
       ChildDeviceWrapper cd_doorbell = cd_devices?.find { it.deviceNetworkId == doorbellID }
 
       if (!cd_doorbell) {
-        logger("warn", "webhook() - Local Doorbell: ${doorbellID} (${payload?.home_id}) not found")
+        logger("warn", "webhook() - Local Doorbell: ${doorbellID} (${payload?.home_name}) not found")
+        return resp
       }
 
-      // Workaround until they fix the API - https://forum.netatmo.com/viewtopic.php?f=5&t=18880
-      switch( payload?.message ) {
-        case ~/.*Incoming call.*|.*Appel entrant.*/:
-          if(logDescText) {
-            log.info "${app.name} ${cd_doorbell} Call/Ring: Incoming"
-          } else {
-            logger("info", "${cd_doorbell} Call/Ring: Incoming")
-          }
-          cd_doorbell?.ring('incoming')
-        break
-        case ~/.*Someone picked up.*|.*Quelqu’un a accepté l’appel.*/:
-          if(logDescText) {
-            log.info "${app.name} ${cd_doorbell} Call/Ring: Accepted"
-          } else {
-            logger("info", "${cd_doorbell} Call/Ring: Accepted")
-          }
-          cd_doorbell?.ring('accepted')
-        break
-        default:
-          logger("warn", "webhook() - Unhandled by ${cd_doorbell} - payload: ${payload}")
-        break
-      }
-
-      /* accepted_call,
       switch (payload?.event_type) {
         case 'on':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell switched on by ${cd_doorbell}")
@@ -646,7 +623,8 @@ def webhook() {
           } else {
             logger("info", "${cd_doorbell} is connected")
           }
-          // cd_doorbell?.sendEvent(name:'switch', value: payload?.event_type)
+          cd_doorbell?.sendEvent(name:'switch', value: 'on')
+          cd_doorbell?.sendEvent(name:'status', value: payload?.event_type)
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell disconnection by ${cd_doorbell}")
@@ -655,20 +633,34 @@ def webhook() {
           } else {
             logger("info", "${cd_doorbell} is disconnected")
           }
-          // cd_doorbell?.sendEvent(name:'switch', value: payload?.event_type)
+          cd_doorbell?.sendEvent(name:'switch', value: 'off')
+          cd_doorbell?.sendEvent(name:'status', value: payload?.event_type)
+        break
+        case 'incoming_call':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell Incoming Call by ${cd_doorbell}")
+          cd_doorbell?.ring('incoming', payload?.snapshot_url)
+        break
+        case 'accepted_call':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell Incoming Call on by ${cd_doorbell}")
+          cd_doorbell?.ring('accepted', payload?.snapshot_url)
+        break
+        case 'missed_call':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell Missed Call on by ${cd_doorbell}")
+          cd_doorbell?.ring('missed', payload?.snapshot_url)
+        break
+        case 'human':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Human detected by ${cd_doorbell}")
+          cd_doorbell?.human(payload?.snapshot_url)
         break
         case 'movement':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected by ${cd_doorbell}")
-          // cd_doorbell?.motion(payload?.snapshot_url)
+          cd_doorbell?.motion(payload?.snapshot_url)
         break
         default:
-          // logger("warn", "webhook() - event_type: ${payload?.event_type} - Unhandled by ${cd_doorbell}")
-          logger("warn", "webhook() - event_type: ${payload} - Unhandled by ${cd_doorbell}")
+          logger("warn", "webhook() - Unhandled by ${cd_doorbell} - event_type: ${payload?.event_type} - payload: ${payload}")
         break
       }
-      */
     }
-
 
     // Smoke
     if (payload?.push_type?.startsWith('NSD')) {

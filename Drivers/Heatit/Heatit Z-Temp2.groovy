@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.1"
+@Field String VERSION = "1.1.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -345,7 +345,6 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
 
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
-  def result = []
   Map map = [:]
 
   switch (cmd.sensorType) {
@@ -373,18 +372,16 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
   } else if(map?.descriptionText) {
     logger("info", "${map.descriptionText}")
   }
-  result << createEvent(map)
-  result
+  sendEvent(map)
 }
 
 def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
   logger("trace", "zwaveEvent(NotificationReport) - cmd: ${cmd.inspect()}")
-  def result = []
 
   if (cmd.notificationType == 8) {
     if (cmd.event == 0x0A) {
       Map map = [name:"battery", value:1, unit:"%", displayed:true]
-      result << createEvent(map)
+      sendEvent(map)
     }
 
   } else if (cmd.notificationType == 9) {
@@ -396,7 +393,7 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
     logger("warn", "zwaveEvent(NotificationReport) - Unhandled - cmd: ${cmd.inspect()}")
   }
 
-  result
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.thermostatmodev2.ThermostatModeReport cmd) {
@@ -483,7 +480,7 @@ def zwaveEvent(hubitat.zwave.commands.batteryv1.BatteryReport cmd) {
   }
 
   state.deviceInfo.lastbatt = now()
-  createEvent(map)
+  sendEvent(map)
 }
 
 void zwaveEvent(hubitat.zwave.commands.versionv2.VersionReport cmd) {
