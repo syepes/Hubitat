@@ -2,7 +2,7 @@
   "packageName": "Schwaiger Temperature Sensor",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2020-10-28",
+  "dateReleased": "2021-02-04",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-schwaiger-temperature-sensor/32956/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Schwaiger Temperature Sensor",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Schwaiger/Schwaiger%20Temperature%20Sensor.groovy",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "required": true
     }
   ]

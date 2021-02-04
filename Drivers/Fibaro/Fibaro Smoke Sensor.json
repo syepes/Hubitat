@@ -12,7 +12,7 @@
       "name": "Fibaro Smoke Sensor",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.groovy",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "required": true
     }
   ]

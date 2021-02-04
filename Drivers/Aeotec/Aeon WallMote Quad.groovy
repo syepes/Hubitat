@@ -162,6 +162,14 @@ def zwaveEvent(hubitat.zwave.commands.securityv1.SecurityCommandsSupportedReport
   response(configure())
 }
 
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalCapabilitiesReport cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalCapabilitiesReport) - cmd: ${cmd.inspect()}")
+}
+
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalGet cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalGet) - cmd: ${cmd.inspect()}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
   logDebug "zwaveEvent(hubitat.zwave.commands.wakeupv1.WakeUpIntervalReport cmd)"
   logTrace "cmd: $cmd"
@@ -236,14 +244,23 @@ def zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) {
   logDebug "${device.displayName} parameter '${cmd.parameterNumber}' with a byte size of '${cmd.size}' is set to '${cmd2Integer(cmd.configurationValue)}'"
 }
 
-def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
-  def fw = "${cmd.firmware0Version}.${cmd.firmware0SubVersion}"
-  updateDataValue("fw", fw)
-  if (state.MSR == "003B-6341-5044") {
-    updateDataValue("ver", "${cmd.firmware0Version >> 4}.${cmd.firmware0SubVersion & 0xF}")
+void zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
+  logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
+
+  if(cmd.applicationVersion != null && cmd.applicationSubVersion != null) {
+    String firmwareVersion = "${cmd.applicationVersion}.${cmd.applicationSubVersion.toString().padLeft(2,'0')}"
+    Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+    updateDataValue("firmware", "${firmwareVersion}")
+    state.deviceInfo['firmwareVersion'] = firmwareVersion
+
+  } else if(cmd.firmware0Version != null && cmd.firmware0SubVersion != null) {
+    def firmware = "${cmd.firmware0Version}.${cmd.firmware0SubVersion.toString().padLeft(2,'0')}"
+    Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+    updateDataValue("firmware", "${firmwareVersion}")
+    state.deviceInfo['firmwareVersion'] = firmwareVersion
+    state.deviceInfo['protocolVersion'] = protocolVersion
   }
-  def text = "$device.displayName: firmware version: $fw, Z-Wave version: ${cmd.zWaveProtocolVersion}.${cmd.zWaveProtocolSubVersion}"
-  createEvent(descriptionText: text, isStateChange: false)
+  []
 }
 
 def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelTestNodeReport cmd) {

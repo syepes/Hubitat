@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.1"
+@Field String VERSION = "1.1.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -204,6 +204,10 @@ def zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) {
   return result
 }
 
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalCapabilitiesReport cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalCapabilitiesReport) - cmd: ${cmd.inspect()}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalGet cmd) {
   logger("trace", "zwaveEvent(WakeUpIntervalGet) - cmd: ${cmd.inspect()}")
 }
@@ -390,7 +394,26 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
   []
 }
 
-void zwaveEvent(hubitat.zwave.commands.versionv2.VersionReport cmd) {
+void zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
+  logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
+
+  if(cmd.applicationVersion != null && cmd.applicationSubVersion != null) {
+    String firmwareVersion = "${cmd.applicationVersion}.${cmd.applicationSubVersion.toString().padLeft(2,'0')}"
+    Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+    updateDataValue("firmware", "${firmwareVersion}")
+    state.deviceInfo['firmwareVersion'] = firmwareVersion
+
+  } else if(cmd.firmware0Version != null && cmd.firmware0SubVersion != null) {
+    def firmware = "${cmd.firmware0Version}.${cmd.firmware0SubVersion.toString().padLeft(2,'0')}"
+    Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+    updateDataValue("firmware", "${firmwareVersion}")
+    state.deviceInfo['firmwareVersion'] = firmwareVersion
+    state.deviceInfo['protocolVersion'] = protocolVersion
+  }
+  []
+}
+
+void zwaveEvent(hubitat.zwave.commands.versionv3.VersionReport cmd) {
   logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
 
   Double firmware0Version = cmd.firmware0Version + (cmd.firmware0SubVersion / 100)

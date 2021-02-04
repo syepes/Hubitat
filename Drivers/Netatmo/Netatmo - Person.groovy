@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -53,6 +53,8 @@ def installed() {
     state.deviceInfo = [:]
   }
 
+  sendEvent(name: "contact", value: "open")
+  sendEvent(name: "presence", value: "not present")
   initialize()
 }
 
@@ -73,7 +75,6 @@ def updated() {
 
 def initialize() {
   logger("debug", "initialize()")
-  sendEvent(name: "contact", value: "open", displayed: false, isStateChange: true)
   schedule("0 0 12 */7 * ?", updateCheck)
 }
 
@@ -101,17 +102,17 @@ def seen(String snapshot_url = null) {
   logger("debug", "seen(${snapshot_url})")
   sendEvent(name: "presence", value: "present", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', isStateChange: true, displayed: true)
   }
 
 }
 
-private contactSensorClose(){
-  sendEvent(name: "contact", value: "closed", displayed: false, isStateChange: true)
-  runIn(180, "contactSensorOpen")
+private contactClose(String person){
+  sendEvent(name: "contact", value: "closed", displayed: true, isStateChange: true, descriptionText: "Activated by ${person}")
+  runIn(180, "contactOpen")
 }
 
-private contactSensorOpen(){
+private contactOpen(){
     sendEvent(name: "contact", value: "open", displayed: false, isStateChange: true)
 }
 

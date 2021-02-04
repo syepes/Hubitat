@@ -2,7 +2,7 @@
   "packageName": "Popp Electric Strike Lock Control",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2020-10-28",
+  "dateReleased": "2021-02-04",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-popp-electric-strike-lock-control/32954/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Popp Electric Strike Lock Control",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Popp/Popp%20Electric%20Strike%20Lock%20Control.groovy",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "required": true
     }
   ]

@@ -15,7 +15,7 @@
   import groovy.transform.Field
   import groovy.json.JsonSlurper
 
-  @Field String VERSION = "1.0.2"
+  @Field String VERSION = "1.0.3"
 
   @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
   @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -151,10 +151,10 @@ def motion(String snapshot_url = null, String person) {
   } else {
     logger("info", "Has detected motion (${person})")
   }
-  sendEvent(name: "motion", value: "active", displayed: true)
+  sendEvent(name: "motion", value: "active", displayed: true, descriptionText: "Activated by ${person}")
   sendEvent(name: "person", value: person, displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', isStateChange: true, displayed: true)
   }
 
   if (motionTimeout) {
@@ -179,7 +179,7 @@ def alarm(String snapshot_url = null) {
   }
   sendEvent(name: "alarm", value: "active", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', isStateChange: true, displayed: true)
   }
 
   if (alarmTimeout) {
@@ -208,12 +208,10 @@ def take() {
     return
   }
 
-  def port = 80
-  def path = "/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
-  def hostAddress = "$cameraIP:$port"
+  def path = "${cameraIP}/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
 
-  sendEvent(name: "image", value: "http://"+ hostAddress + path, isStateChange: true, displayed: true)
-  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="240" height="190">', isStateChange: true, displayed: true)
+  sendEvent(name: "image", value: "http://"+ path, isStateChange: true, displayed: true)
+  sendEvent(name: "image_tag", value: '<img src="http://'+ path +'" width="240" height="190">', isStateChange: true, displayed: true)
 }
 
 private startTimer(seconds, function) {

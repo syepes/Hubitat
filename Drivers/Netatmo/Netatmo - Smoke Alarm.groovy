@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -47,6 +47,7 @@ def installed() {
     state.deviceInfo = [:]
   }
 
+  sendEvent(name: "smoke", value: "clear")
   initialize()
 }
 

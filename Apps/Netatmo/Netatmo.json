@@ -2,7 +2,7 @@
   "packageName": "Netatmo",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2021-01-15",
+  "dateReleased": "2021-02-04",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-netatmo/32958/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Netatmo",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo.groovy",
-      "version": "1.2.3",
+      "version": "1.2.4",
       "required": true,
       "oauth": true,
       "primary": true
@@ -23,14 +23,14 @@
       "name": "Netatmo - Doorbell",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Doorbell.groovy",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "required": true
     },
     {
       "name": "Netatmo - Person",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Person.groovy",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "required": true
     },
     {
@@ -44,7 +44,7 @@
       "name": "Netatmo - Welcome",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Welcome.groovy",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "required": true
     },
     {
@@ -58,7 +58,7 @@
       "name": "Netatmo - Smoke Alarm",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Smoke%20Alarm.groovy",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "required": true
     }
   ]

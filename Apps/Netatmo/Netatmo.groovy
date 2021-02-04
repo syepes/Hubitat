@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.2.3"
+@Field String VERSION = "1.2.4"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -147,7 +147,7 @@ def initialize() {
     logger("info", "Removing all devices")
     removeChildDevices(getChildDevices())
   }
-  
+
   if (installWebhook && !state.webhookInstalled) {
     addWebhook()
   } else if (!installWebhook && state.webhookInstalled) {
@@ -470,7 +470,7 @@ def webhook() {
         } else {
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Person detected (${personName}) by ${cd_camera}")
           cd_person?.seen(payload?.snapshot_url)
-          cd_person?.contactSensorClose()
+          cd_person?.contactClose(personName)
         }
       }
 
@@ -505,27 +505,15 @@ def webhook() {
         break
         case 'movement':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected by ${cd_camera}")
-          if (payload?.snapshot_url) {
-            cd_camera?.motion(payload?.snapshot_url, personName)
-          } else {
-            cd_camera?.motion(null, "${personName}")
-          }
+          cd_camera?.motion(payload?.snapshot_url ?: null, personName)
         break
         case 'person':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Person detected (${personName}) by ${cd_camera}")
-          if (payload?.snapshot_url) {
-            cd_camera?.motion(payload?.snapshot_url, personName)
-          } else {
-            cd_camera?.motion(null, "${personName}")
-          }
+          cd_camera?.motion(payload?.snapshot_url ?: null, personName)
         break
         case 'alarm_started':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Alarm detected (${personName}) by ${cd_camera}")
-          if (payload?.snapshot_url) {
-            cd_camera?.alarm(payload?.snapshot_url)
-          } else {
-            cd_camera?.alarm()
-          }
+          cd_camera?.alarm(payload?.snapshot_url)
         break
         default:
           logger("warn", "webhook() - Unhandled by ${cd_camera} - event_type: ${payload?.event_type} - payload: ${payload}")

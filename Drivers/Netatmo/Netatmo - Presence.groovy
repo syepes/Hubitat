@@ -271,12 +271,10 @@ def take() {
     return
   }
 
-  def port = 80
-  def path = "/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
-  def hostAddress = "$cameraIP:$port"
+  def path = "${cameraIP}/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
 
-  sendEvent(name: "image", value: "http://"+ hostAddress + path, isStateChange: true, displayed: true)
-  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="240" height="190">', isStateChange: true, displayed: true)
+  sendEvent(name: "image", value: "http://"+ path, isStateChange: true, displayed: true)
+  sendEvent(name: "image_tag", value: '<img src="http://'+ path +'" width="240" height="190">', isStateChange: true, displayed: true)
 }
 
 def light_mode(mode="auto") {

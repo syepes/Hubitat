@@ -2,7 +2,7 @@
   "packageName": "Qubino Flush Shutter - CMV",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2020-10-28",
+  "dateReleased": "2021-02-04",
   "documentationLink": "",
   "communityLink": "",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Qubino Flush Shutter - CMV",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Shutter%20-%20CMV.groovy",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "required": true
     }
   ]

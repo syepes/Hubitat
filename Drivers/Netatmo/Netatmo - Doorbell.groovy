@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -208,7 +208,7 @@ def motion(String snapshot_url=null) {
   }
   sendEvent(name: "motion", value: "active", displayed: true)
   if (snapshot_url != null) {
-    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="190" height="300">', displayed: true)
+    sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="190" height="300">', isStateChange: true, displayed: true)
   }
 
   if (motionTimeout) {
@@ -237,12 +237,10 @@ def take() {
     return
   }
 
-  def port = 80
-  def path = "/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
-  def hostAddress = "$doorBellIP:$port"
+  def path = "${doorBellIP}/${state.deviceInfo['accessKey']}/live/snapshot_720.jpg"
 
-  sendEvent(name: "image", value: "http://"+ hostAddress + path, isStateChange: true, displayed: true)
-  sendEvent(name: "image_tag", value: '<img src="http://'+ hostAddress + path +'" width="190" height="300">', isStateChange: true, displayed: true)
+  sendEvent(name: "image", value: "http://"+ path, isStateChange: true, displayed: true)
+  sendEvent(name: "image_tag", value: '<img src="http://'+ path +'" width="190" height="300">', isStateChange: true, displayed: true)
 }
 
 private startTimer(seconds, function) {

@@ -2,7 +2,7 @@
   "packageName": "Heltun Touch Panel Switch - Quinto",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2020-10-28",
+  "dateReleased": "2021-02-04",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-heltun-touch-panel-switch/49430/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Heltun Touch Panel Switch - Quinto",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Heltun/Heltun%20Touch%20Panel%20Switch%20-%20Quinto.groovy",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "required": true
     },
     {

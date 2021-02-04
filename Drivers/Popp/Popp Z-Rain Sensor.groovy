@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.1"
+@Field String VERSION = "1.1.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -164,6 +164,10 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
   []
 }
 
+def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalCapabilitiesReport cmd) {
+  logger("trace", "zwaveEvent(WakeUpIntervalCapabilitiesReport) - cmd: ${cmd.inspect()}")
+}
+
 def zwaveEvent(hubitat.zwave.commands.wakeupv2.WakeUpIntervalGet cmd) {
   logger("trace", "zwaveEvent(WakeUpIntervalGet) - cmd: ${cmd.inspect()}")
 }
@@ -270,7 +274,7 @@ def zwaveEvent(hubitat.zwave.commands.basicv1.BasicSet cmd) {
     logger("info", "${map.descriptionText}")
   }
 
-  createEvent(map)
+  sendEvent(map)
 }
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
@@ -363,16 +367,41 @@ def zwaveEvent(hubitat.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
   []
 }
 
-def zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
+void zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
   logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
 
-  state.deviceInfo['applicationVersion'] = "${cmd.applicationVersion}"
-  state.deviceInfo['applicationSubVersion'] = "${cmd.applicationSubVersion}"
-  state.deviceInfo['zWaveLibraryType'] = "${cmd.zWaveLibraryType}"
-  state.deviceInfo['zWaveProtocolVersion'] = "${cmd.zWaveProtocolVersion}"
-  state.deviceInfo['zWaveProtocolSubVersion'] = "${cmd.zWaveProtocolSubVersion}"
+  if(cmd.applicationVersion != null && cmd.applicationSubVersion != null) {
+    String firmwareVersion = "${cmd.applicationVersion}.${cmd.applicationSubVersion.toString().padLeft(2,'0')}"
+    Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+    updateDataValue("firmware", "${firmwareVersion}")
+    state.deviceInfo['firmwareVersion'] = firmwareVersion
 
-  updateDataValue("firmware", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
+  } else if(cmd.firmware0Version != null && cmd.firmware0SubVersion != null) {
+    def firmware = "${cmd.firmware0Version}.${cmd.firmware0SubVersion.toString().padLeft(2,'0')}"
+    Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+    updateDataValue("firmware", "${firmwareVersion}")
+    state.deviceInfo['firmwareVersion'] = firmwareVersion
+    state.deviceInfo['protocolVersion'] = protocolVersion
+  }
+  []
+}
+
+void zwaveEvent(hubitat.zwave.commands.versionv3.VersionReport cmd) {
+  logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
+
+  Double firmware0Version = cmd.firmware0Version + (cmd.firmware0SubVersion / 100)
+  Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+  updateDataValue("firmware", "${firmware0Version}")
+  state.deviceInfo['firmwareVersion'] = firmware0Version
+  state.deviceInfo['protocolVersion'] = protocolVersion
+  state.deviceInfo['hardwareVersion'] = cmd.hardwareVersion
+
+  if (cmd.firmwareTargets > 0) {
+    cmd.targetVersions.each { target ->
+      Double targetVersion = target.version + (target.subVersion / 100)
+      state.deviceInfo["firmware${target.target}Version"] = targetVersion
+    }
+  }
   []
 }
 

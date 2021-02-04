@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -577,6 +577,25 @@ def zwaveEvent(hubitat.zwave.commands.clockv1.ClockReport cmd) {
 }
 
 void zwaveEvent(hubitat.zwave.commands.versionv2.VersionReport cmd) {
+  logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
+
+  Double firmware0Version = cmd.firmware0Version + (cmd.firmware0SubVersion / 100)
+  Double protocolVersion = cmd.zWaveProtocolVersion + (cmd.zWaveProtocolSubVersion / 100)
+  updateDataValue("firmware", "${firmware0Version}")
+  state.deviceInfo['firmwareVersion'] = firmware0Version
+  state.deviceInfo['protocolVersion'] = protocolVersion
+  state.deviceInfo['hardwareVersion'] = cmd.hardwareVersion
+
+  if (cmd.firmwareTargets > 0) {
+    cmd.targetVersions.each { target ->
+      Double targetVersion = target.version + (target.subVersion / 100)
+      state.deviceInfo["firmware${target.target}Version"] = targetVersion
+    }
+  }
+  []
+}
+
+void zwaveEvent(hubitat.zwave.commands.versionv3.VersionReport cmd) {
   logger("trace", "zwaveEvent(VersionReport) - cmd: ${cmd.inspect()}")
 
   Double firmware0Version = cmd.firmware0Version + (cmd.firmware0SubVersion / 100)
