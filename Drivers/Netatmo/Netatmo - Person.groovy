@@ -25,6 +25,7 @@ metadata {
     capability "Actuator"
     capability "Sensor"
     capability "Presence Sensor"
+    capability "ContactSensor"
     capability "Refresh"
 
     command "seen"
@@ -72,7 +73,7 @@ def updated() {
 
 def initialize() {
   logger("debug", "initialize()")
-
+  sendEvent(name: "contact", value: "open", displayed: false, isStateChange: true)
   schedule("0 0 12 */7 * ?", updateCheck)
 }
 
@@ -102,6 +103,16 @@ def seen(String snapshot_url = null) {
   if (snapshot_url != null) {
     sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
   }
+
+}
+
+private contactSensorClose(){
+  sendEvent(name: "contact", value: "closed", displayed: false, isStateChange: true)
+  runIn(180, "contactSensorOpen")
+}
+
+private contactSensorOpen(){
+    sendEvent(name: "contact", value: "open", displayed: false, isStateChange: true)
 }
 
 def away() {

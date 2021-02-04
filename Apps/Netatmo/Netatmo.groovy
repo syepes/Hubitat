@@ -83,13 +83,6 @@ def updated() {
     }
   }
 
-  if (installWebhook && !state.webhookInstalled) {
-    addWebhook()
-  } else if (!installWebhook && state.webhookInstalled) {
-    dropWebhook()
-    state.webhookInstalled = false
-  }
-
   initialize()
 }
 
@@ -153,6 +146,13 @@ def initialize() {
   } else {
     logger("info", "Removing all devices")
     removeChildDevices(getChildDevices())
+  }
+  
+  if (installWebhook && !state.webhookInstalled) {
+    addWebhook()
+  } else if (!installWebhook && state.webhookInstalled) {
+    dropWebhook()
+    state.webhookInstalled = false
   }
 
   schedule("0 0 12 */7 * ?", updateCheck)
@@ -470,6 +470,7 @@ def webhook() {
         } else {
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Person detected (${personName}) by ${cd_camera}")
           cd_person?.seen(payload?.snapshot_url)
+          cd_person?.contactSensorClose()
         }
       }
 
@@ -507,7 +508,7 @@ def webhook() {
           if (payload?.snapshot_url) {
             cd_camera?.motion(payload?.snapshot_url, personName)
           } else {
-            cd_camera?.motion()
+            cd_camera?.motion(null, "${personName}")
           }
         break
         case 'person':
@@ -515,7 +516,7 @@ def webhook() {
           if (payload?.snapshot_url) {
             cd_camera?.motion(payload?.snapshot_url, personName)
           } else {
-            cd_camera?.motion()
+            cd_camera?.motion(null, "${personName}")
           }
         break
         case 'alarm_started':
