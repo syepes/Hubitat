@@ -107,12 +107,12 @@ def seen(String snapshot_url = null) {
 }
 
 private contactSensorClose(){
-  sendEvent(name: "contactSensor", value: "closed", displayed: false)
+  sendEvent(name: "contact", value: "closed", displayed: true)
   runIn(180, "contactSensorOpen")
 }
 
 private contactSensorOpen(){
-    sendEvent(name: "contactSensor", value: "open", displayed: false)
+    sendEvent(name: "contact", value: "open", displayed: true)
 }
 
 def away() {
