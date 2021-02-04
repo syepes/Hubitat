@@ -73,7 +73,7 @@ def updated() {
 
 def initialize() {
   logger("debug", "initialize()")
-
+  sendEvent(name: "contact", value: "open", displayed: false, isStateChange: true)
   schedule("0 0 12 */7 * ?", updateCheck)
 }
 
@@ -107,12 +107,12 @@ def seen(String snapshot_url = null) {
 }
 
 private contactSensorClose(){
-  sendEvent(name: "contact", value: "closed", displayed: true)
+  sendEvent(name: "contact", value: "closed", displayed: false, isStateChange: true)
   runIn(180, "contactSensorOpen")
 }
 
 private contactSensorOpen(){
-    sendEvent(name: "contact", value: "open", displayed: true)
+    sendEvent(name: "contact", value: "open", displayed: false, isStateChange: true)
 }
 
 def away() {
