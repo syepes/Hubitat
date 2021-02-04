@@ -144,7 +144,7 @@ def off() {
   sendEvent(name: "switch", value: "off")
 }
 
-def motion(String snapshot_url = null, String person = 'Unknown') {
+def motion(String snapshot_url = null, String person) {
   logger("debug", "motion(${snapshot_url}, ${person})")
   if(logDescText) {
     log.info "${device.displayName} Has detected motion (${person})"
