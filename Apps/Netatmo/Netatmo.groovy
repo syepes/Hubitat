@@ -470,6 +470,7 @@ def webhook() {
         } else {
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Person detected (${personName}) by ${cd_camera}")
           cd_person?.seen(payload?.snapshot_url)
+          cd_person?.contactSensorClose()
         }
       }
 
@@ -507,7 +508,7 @@ def webhook() {
           if (payload?.snapshot_url) {
             cd_camera?.motion(payload?.snapshot_url, personName)
           } else {
-            cd_camera?.motion()
+            cd_camera?.motion(null, "${personName}")
           }
         break
         case 'person':
@@ -515,7 +516,7 @@ def webhook() {
           if (payload?.snapshot_url) {
             cd_camera?.motion(payload?.snapshot_url, personName)
           } else {
-            cd_camera?.motion()
+            cd_camera?.motion(null, "${personName}")
           }
         break
         case 'alarm_started':
