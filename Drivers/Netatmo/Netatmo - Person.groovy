@@ -25,6 +25,7 @@ metadata {
     capability "Actuator"
     capability "Sensor"
     capability "Presence Sensor"
+    capability "ContactSensor"
     capability "Refresh"
 
     command "seen"
@@ -102,6 +103,16 @@ def seen(String snapshot_url = null) {
   if (snapshot_url != null) {
     sendEvent(name: "image_tag", value: '<img src="'+ snapshot_url +'" width="240" height="190">', displayed: true)
   }
+
+}
+
+private contactSensorClose(){
+  sendEvent(name: "contactSensor", value: "closed", displayed: false)
+  runIn(180, "contactSensorOpen")
+}
+
+private contactSensorOpen(){
+    sendEvent(name: "contactSensor", value: "open", displayed: false)
 }
 
 def away() {
