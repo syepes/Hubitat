@@ -83,13 +83,6 @@ def updated() {
     }
   }
 
-  if (installWebhook && !state.webhookInstalled) {
-    addWebhook()
-  } else if (!installWebhook && state.webhookInstalled) {
-    dropWebhook()
-    state.webhookInstalled = false
-  }
-
   initialize()
 }
 
@@ -153,6 +146,13 @@ def initialize() {
   } else {
     logger("info", "Removing all devices")
     removeChildDevices(getChildDevices())
+  }
+  
+  if (installWebhook && !state.webhookInstalled) {
+    addWebhook()
+  } else if (!installWebhook && state.webhookInstalled) {
+    dropWebhook()
+    state.webhookInstalled = false
   }
 
   schedule("0 0 12 */7 * ?", updateCheck)
