@@ -562,7 +562,7 @@ private void loginHE() {
       path: '/login',
       ignoreSSLIssues:  true,
       requestContentType: 'application/x-www-form-urlencoded',
-      body: [username: "syepes", password: '***REMOVED***']
+      body: [username: he_usr, password: he_pwd]
     ]
 
     httpPost(params) { resp ->
