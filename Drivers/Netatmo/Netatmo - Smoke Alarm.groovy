@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -104,7 +104,7 @@ def battery(String type) {
   } else {
     logger("debug", "Battery is ${type == 0 ? 'low' : 'very low'}")
   }
-  sendEvent(name: "battery", value: type == 0 ? '50' : '5', descriptionText: type == 0 ? 'low' : 'very low' displayed: true)
+  sendEvent(name: "battery", value: type == 0 ? '50' : '5', descriptionText: type == 0 ? 'low' : 'very low', displayed: true)
 }
 
 /**

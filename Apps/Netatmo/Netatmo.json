@@ -58,7 +58,7 @@
       "name": "Netatmo - Smoke Alarm",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Smoke%20Alarm.groovy",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "required": true
     }
   ]

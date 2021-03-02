@@ -277,7 +277,7 @@ def handleEvent(evt) {
         String device_inventory = "hub_info,${labels.collect{ k,v -> "$k=$v" }.join(',')} value=1"
         pushMetric(device_inventory)
       } else {
-        logger("warn", "handleEvent() - Device not found in the inventory device_id:${device_id},  device_name:${evt?.name}, device_label:${evt?.displayName}")
+        logger("warn", "handleEvent() - Device not found in the inventory device_id:${device_id}, device_name:${evt?.name}, device_label:${evt?.displayName}")
       }
     }
 
