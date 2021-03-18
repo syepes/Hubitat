@@ -12,6 +12,7 @@ Aeotec        | [Heavy Duty Smart Switch Gen5](https://aeotec.com/outdoor-z-wave
 Aeotec        | [Range Extender 6+7](https://aeotec.com/z-wave-repeater/) | ZW117(Working)
 Aeotec        | [MultiSensor 6](https://aeotec.com/z-wave-sensor/) | ZW100(Working FW: +1.13)
 Aeotec        | [Water Sensor 6](https://aeotec.com/z-wave-water-sensor/) | ZW122(Working)
+Eurotronic    | [Air Quality Sensor](https://eurotronic.org/produkte/sensoren/luftguetesensor/) | 700088(Working)
 Fibaro        | [Smoke Sensor](https://manuals.fibaro.com/smoke-sensor/) | FGSD-002(Working)
 Popp          | [Electric Strike Lock Control](https://www.popp.eu/products/actuators/strike-lock-control/) | 012501(Working)
 Popp          | [Z-Rain](https://www.popp.eu/z-rain/) | 700168(Working)

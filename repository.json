@@ -212,6 +212,16 @@
         "ZWave",
         "Safety & Security"
       ]
+    },
+    {
+      "name": "Eurotronic Air Quality Sensor",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Eurotronic/Eurotronic%20Air%20Quality%20Sensor.groovy",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "ZWave",
+        "Temperature & Humidity"
+      ]
     }
   ]
 }
