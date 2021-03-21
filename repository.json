@@ -215,7 +215,7 @@
     },
     {
       "name": "Eurotronic Air Quality Sensor",
-      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Eurotronic/Eurotronic%20Air%20Quality%20Sensor.groovy",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Eurotronic/Eurotronic%20Air%20Quality%20Sensor.json",
       "description": "",
       "category": "Integrations",
       "tags": [
