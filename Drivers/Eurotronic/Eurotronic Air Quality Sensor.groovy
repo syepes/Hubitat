@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -66,7 +66,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
 
   if (state.deviceInfo == null) {
@@ -130,7 +130,6 @@ def poll() {
 
 def configure() {
   logger("debug", "configure()")
-  schedule("0 0 12 */7 * ?", updateCheck)
 
   if (forcePollInterval.toInteger()) {
     if (['1', '3', '5', '10', '15', '30'].contains(forcePollInterval) ) {
@@ -295,8 +294,8 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv10.SensorMultilevelReport
     break
     case 39:
       map.name = "VOC"
-      map.value = cmd.scaledSensorValue
-      map.unit = "ppb"
+      map.value = (cmd.scaledSensorValue * 1000)
+      map.unit = "ppm"
       map.descriptionText = "VOC is ${map.value} ${map.unit}"
 
       if (map.value < 65) {
@@ -443,7 +442,17 @@ def zwaveEvent(hubitat.zwave.commands.crc16encapv1.Crc16Encap cmd) {
 }
 
 def zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
-  logger("trace", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
+  logger("warn", "zwaveEvent(MultiChannelCmdEncap) - cmd: ${cmd.inspect()}")
+
+  if (cmd.commandClass == 0x6C && cmd.parameter.size >= 4) { // Supervision encapsulated Message
+    // Supervision header is 4 bytes long, two bytes dropped here are the latter two bytes of the supervision header
+    cmd.parameter = cmd.parameter.drop(2)
+    // Updated Command Class/Command now with the remaining bytes
+    cmd.commandClass = cmd.parameter[0]
+    cmd.command = cmd.parameter[1]
+    cmd.parameter = cmd.parameter.drop(2)
+    logger("warn", "zwaveEvent(MultiChannelCmdEncap) - cmd (0x6C): ${cmd.inspect()}")
+	}
 
   def encapsulatedCommand = cmd.encapsulatedCommand(getCommandClassVersions())
   if (encapsulatedCommand) {
@@ -477,6 +486,57 @@ void zwaveEvent(hubitat.zwave.commands.supervisionv1.SupervisionGet cmd){
   }
   sendHubCommand(new hubitat.device.HubAction(secure(zwave.supervisionV1.supervisionReport(sessionID: cmd.sessionID, reserved: 0, moreStatusUpdates: false, status: 0xFF, duration: 0)), hubitat.device.Protocol.ZWAVE))
 }
+
+@Field static Map<String, Map<Short, String>> supervisedPackets = [:]
+@Field static Map<String, Short> sessionIDs = [:]
+
+void zwaveEvent(hubitat.zwave.commands.supervisionv1.SupervisionReport cmd) {
+  logger("trace", "zwaveEvent(SupervisionReport) - cmd: ${cmd.inspect()}")
+  logger("debug", "Supervision report for session: ${cmd.sessionID}")
+
+  if (!supervisedPackets."${device.id}") { supervisedPackets."${device.id}" = [:] }
+  if (supervisedPackets["${device.id}"][cmd.sessionID] != null) { supervisedPackets["${device.id}"].remove(cmd.sessionID) }
+  unschedule(supervisionCheck)
+}
+
+void supervisionCheck() {
+  // re-attempt once
+  if (!supervisedPackets."${device.id}") { supervisedPackets."${device.id}" = [:] }
+  supervisedPackets["${device.id}"].each { k, v ->
+    logger("debug", "Supervision re-sending supervised session: ${k}")
+    sendHubCommand(new hubitat.device.HubAction(zwaveSecureEncap(v), hubitat.device.Protocol.ZWAVE))
+    supervisedPackets["${device.id}"].remove(k)
+  }
+}
+
+Short getSessionId() {
+  Short sessId = 1
+  if (!sessionIDs["${device.id}"]) {
+    sessionIDs["${device.id}"] = sessId
+    return sessId
+  } else {
+    sessId = sessId + sessionIDs["${device.id}"]
+    if (sessId > 63) { sessId = 1 }
+    sessionIDs["${device.id}"] = sessId
+    return sessId
+  }
+}
+
+hubitat.zwave.Command supervisedEncap(hubitat.zwave.Command cmd) {
+    if (getDataValue("S2")?.toInteger() != null) {
+        hubitat.zwave.commands.supervisionv1.SupervisionGet supervised = new hubitat.zwave.commands.supervisionv1.SupervisionGet()
+        supervised.sessionID = getSessionId()
+        if (logEnable) log.debug "new supervised packet for session: ${supervised.sessionID}"
+        supervised.encapsulate(cmd)
+        if (!supervisedPackets."${device.id}") { supervisedPackets."${device.id}" = [:] }
+        supervisedPackets["${device.id}"][supervised.sessionID] = supervised.format()
+        runIn(5, supervisionCheck)
+        return supervised
+    } else {
+        return cmd
+    }
+}
+
 
 def zwaveEvent(hubitat.zwave.Command cmd) {
   logger("warn", "zwaveEvent(Command) - Unhandled - cmd: ${cmd.inspect()}")
@@ -550,30 +610,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Eurotronic/Eurotronic%20Air%20Quality%20Sensor.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

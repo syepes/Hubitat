@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.2"
+@Field String VERSION = "1.1.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -70,7 +70,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
     state.driverInfo.configSynced = false
   }
 
@@ -110,8 +110,6 @@ def refresh() {
 
 def configure() {
   logger("debug", "configure()")
-  schedule("0 0 12 */7 * ?", updateCheck)
-
   logger("info", "Device configurations will be synchronized on the next device wakeUp")
   state.driverInfo.configSynced = false
 }
@@ -187,13 +185,13 @@ def zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cmd) {
     case 136:
       if (cmd.size == 1) {
         result << createEvent(name: "probe", value: "1", descriptionText: "probe 1 detected water")
-        if(logDescText) { log.info "${device.displayName} Detected water on probe 1" }
+        if (logDescText) { log.info "${device.displayName} Detected water on probe 1" }
       } else if (cmd.size == 2) {
         result << createEvent(name: "probe", value: "2", descriptionText: "probe 2 detected water")
-        if(logDescText) { log.info "${device.displayName} Detected water on probe 2" }
+        if (logDescText) { log.info "${device.displayName} Detected water on probe 2" }
       } else if (cmd.size == 3) {
         result << createEvent(name: "probe", value: "3", descriptionText: "Both probes have detected water")
-        if(logDescText) { log.info "${device.displayName} Detected water on both probes" }
+        if (logDescText) { log.info "${device.displayName} Detected water on both probes" }
       }
     break;
     default:
@@ -289,33 +287,33 @@ def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
       if (cmd.event == 0x00) {
         result << createEvent(name: "water", value: "dry", descriptionText: "Sensor is dry")
         result << createEvent(name: "probe", value: "dry")
-        if(logDescText) { log.info "${device.displayName} Water cleared" }
+        if (logDescText) { log.info "${device.displayName} Water cleared" }
       }
       if (cmd.event == 0x02) {
         result << createEvent(name: "water", value: "wet", descriptionText: "Sensor detected water")
-        if(logDescText) { log.info "${device.displayName} Water detected" }
+        if (logDescText) { log.info "${device.displayName} Water detected" }
         result << response(cmd(zwave.configurationV1.configurationGet(parameterNumber: 136)))
       }
     break
     case 0x04:
       if (cmd.event == 0x00) {
         result << createEvent(name: "temperatureStatus", value: "clear", descriptionText: "Temperature cleared")
-        if(logDescText) { log.info "${device.displayName} Temperature cleared" }
+        if (logDescText) { log.info "${device.displayName} Temperature cleared" }
       } else if (cmd.event <= 0x02) {
         result << createEvent(name: "temperatureStatus", value: "overheat", descriptionText: "Detected overheat")
-        if(logDescText) { log.info "${device.displayName} Temperature overheat detected" }
+        if (logDescText) { log.info "${device.displayName} Temperature overheat detected" }
       } else if (cmd.event == 0x06) {
         result << createEvent(name: "temperatureStatus", value: "low", descriptionText: "Detected low temperature")
-        if(logDescText) { log.info "${device.displayName} Temperature low detected" }
+        if (logDescText) { log.info "${device.displayName} Temperature low detected" }
       }
     break
     case 0x07:
       if (cmd.event == 0x00) {
         result << createEvent(name: "shock", value: "clear", descriptionText: "Shock cleared")
-        if(logDescText) { log.info "${device.displayName} Shock cleared" }
+        if (logDescText) { log.info "${device.displayName} Shock cleared" }
       } else if (cmd.event == 0x03) {
         result << createEvent(name: "shock", value: "detected", descriptionText: "Shock detected")
-        if(logDescText) { log.info "${device.displayName} Shock detected" }
+        if (logDescText) { log.info "${device.displayName} Shock detected" }
         startTimer(motionTimeout?.toInteger(), cancelMotion)
       }
     break
@@ -353,7 +351,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
 
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C")
-    if(logDescText) { log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
+    if (logDescText) { log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }
@@ -536,7 +534,7 @@ def zwaveEvent(hubitat.zwave.Command cmd) {
 
 def cancelMotion() {
   logger("debug", "cancelMotion()")
-  if(logDescText) { log.info "${device.displayName} Shock cleared" }
+  if (logDescText) { log.info "${device.displayName} Shock cleared" }
   sendEvent(name: "shock", value: "clear")
 }
 
@@ -613,30 +611,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Water%20Sensor%206.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

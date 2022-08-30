@@ -15,10 +15,10 @@
 import groovy.json.JsonSlurper
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.0.4"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
-@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
+@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 /*
 Example VD_JSON definition json string
@@ -67,7 +67,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
 
   if (state.deviceInfo == null) {
@@ -115,9 +115,6 @@ def configure() {
   logger("debug", "configure()")
 
   state.devicePings = 0
-
-  schedule("0 0 12 */7 * ?", updateCheck)
-
   if (stateCheckInterval.toInteger()) {
     if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
       schedule("0 */${stateCheckInterval} * ? * *", checkState)
@@ -233,7 +230,7 @@ private def childClose(String value) {
               logger("debug", "childClose(${value}) - Shade: ${cv} -> closed")
               cd.parse([[name:"windowShade", value:"closed", descriptionText:"Was closed"]])
               cd.parse([[name:"switch", value:"off", descriptionText:"Was opened"]])
-              if(logDescText) {
+              if (logDescText) {
                 log.info "${cd.displayName} Was closed"
               } else {
                 logger("info", "${cd.displayName} Was closed")
@@ -270,7 +267,7 @@ private def childOpen(String value) {
               logger("debug", "childOpen(${value}) - Shade: ${cv} -> open")
               cd.parse([[name:"windowShade", value:"open", descriptionText:"Was opened"]])
               cd.parse([[name:"switch", value:"on", descriptionText:"Was opened"]])
-              if(logDescText) {
+              if (logDescText) {
                 log.info "${cd.displayName} Was opened"
               } else {
                 logger("info", "${cd.displayName} Was opened")
@@ -306,7 +303,7 @@ private def childStop(String value) {
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               logger("debug", "childStop(${value}) - Shade: ${cv} -> partially open")
               cd.parse([[name:"windowShade", value:"partially open", descriptionText:"Was stopped"]])
-              if(logDescText) {
+              if (logDescText) {
                 log.info "${cd.displayName} Was stopped"
               } else {
                 logger("info", "${cd.displayName} Was stopped")
@@ -348,7 +345,7 @@ private def childOn(String value) {
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               logger("debug", "childOn(${value}) - switch: ${cv} -> off")
               cd.parse([[name:"switch", value:"off", descriptionText:"Was turned off"]])
-              if(logDescText) {
+              if (logDescText) {
                 log.info "${cd.displayName} Was turned off"
               } else {
                 logger("info", "${cd.displayName} Was turned off")
@@ -384,7 +381,7 @@ private def childOff(String value) {
             if ( getActionNow(getCommand("Backlog", urlEscape("RfRaw ${rf_cmd}; RfRaw 0"))) ) {
               logger("debug", "childOff(${value}) - switch: ${cv} -> on")
               cd.parse([[name:"switch", value:"on", descriptionText:"Was turned on"]])
-              if(logDescText) {
+              if (logDescText) {
                 log.info "${cd.displayName} Was turned on"
               } else {
                 logger("info", "${cd.displayName} Was turned on")
@@ -537,30 +534,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

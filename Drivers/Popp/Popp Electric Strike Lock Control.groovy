@@ -15,7 +15,7 @@
 import hubitat.zwave.commands.doorlockv1.*
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.2"
+@Field String VERSION = "1.1.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -57,7 +57,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
 
   if (state.deviceInfo == null) {
@@ -118,8 +118,6 @@ def refresh() {
 def configure() {
   logger("debug", "configure()")
   def cmds = []
-
-  schedule("0 0 12 */7 * ?", updateCheck)
 
   if (stateCheckInterval.toInteger()) {
     if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
@@ -215,7 +213,7 @@ def zwaveEvent(DoorLockOperationReport cmd) {
   def result = []
 
   if (cmd.doorLockMode == 0xFF) {
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Strike Closed (Permanently)"
     } else {
       logger("info", "Strike Closed (Permanently)")
@@ -223,7 +221,7 @@ def zwaveEvent(DoorLockOperationReport cmd) {
     result << createEvent(name: "lock", value: "locked", descriptionText: "Strike Closed (Permanently)", displayed: true)
 
   } else if (cmd.doorLockMode >= 0x40) {
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Strike in Unknown state"
     } else {
       logger("info", "Strike in Unknown state")
@@ -231,7 +229,7 @@ def zwaveEvent(DoorLockOperationReport cmd) {
     result << createEvent(name: "lock", value: "unknown", descriptionText: "Strike in Unknown state", displayed: true)
 
   } else if (cmd.doorLockMode & 1) {
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Strike Open (Temporarily)"
     } else {
       logger("info", "Strike Open (Temporarily)")
@@ -239,7 +237,7 @@ def zwaveEvent(DoorLockOperationReport cmd) {
     result << createEvent(name: "lock", value: "unlocked", descriptionText: "Strike Open (Temporarily)", displayed: true)
 
   } else {
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Strike Open (Permanently)"
     } else {
       logger("info", "Strike Open (Permanently)")
@@ -271,7 +269,7 @@ def zwaveEvent(hubitat.zwave.commands.alarmv2.AlarmReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) {
   logger("trace", "zwaveEvent(SensorBinaryReport) - cmd: ${cmd.inspect()}")
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Dry Input is ${cmd.sensorValue ? "open" : "closed"}"
   } else {
     logger("info", "Dry Input is ${cmd.sensorValue ? "open" : "closed"}")
@@ -573,30 +571,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Popp/Popp%20Electric%20Strike%20Lock%20Control.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

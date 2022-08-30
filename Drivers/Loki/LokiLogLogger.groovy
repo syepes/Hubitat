@@ -29,6 +29,7 @@ metadata {
   definition (name: "LokiLogLogger", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiLogLogger.groovy") {
     capability "Initialize"
   }
+  attribute "status", "string"
   command "disconnect"
   command "connect"
   command "cleanQueue"
@@ -51,7 +52,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
 
   if (state.deviceInfo == null) {
@@ -155,15 +156,26 @@ void initialize() {
   logger("debug", "initialize()")
   unschedule()
   runIn(5, "connect")
-  schedule("0 0 12 */7 * ?", updateCheck)
   if (deviceDetails.toInteger()) { schedule("0 0 * ? * *", deviceInventory) }
 }
 
 void webSocketStatus(String status) {
   logger("debug", "webSocketStatus() - status: ${status}")
 
-  if(status.startsWith("failure")) {
-    logger("warn", "Reconnecting to WebSocket")
+  if(status.startsWith("status: open")) {
+    sendEvent(naxme: "status", value: "open", displayed: true)
+    return
+  } else if(status.startsWith("status: closing")) {
+    sendEvent(name: "status", value: "closing", displayed: true)
+    return
+  } else if(status.startsWith("failure")) {
+    logger("warn", "Reconnecting to WebSocket (${status})")
+    sendEvent(name: "status", value: "failed", displayed: true)
+    // Wait and reconnect
+    runIn(5, connect)
+  } else {
+    logger("warn", "Reconnecting to WebSocket (${status})")
+    sendEvent(name: "status", value: "lost", displayed: true)
     // Wait and reconnect
     runIn(5, connect)
   }
@@ -333,30 +345,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiLogLogger.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

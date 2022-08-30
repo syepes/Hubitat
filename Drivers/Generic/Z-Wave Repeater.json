@@ -2,7 +2,7 @@
   "packageName": "Z-Wave Repeater",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2020-10-28",
+  "dateReleased": "2022-08-18",
   "documentationLink": "",
   "communityLink": "",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Z-Wave Repeater",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Generic/Z-Wave%20Repeater.groovy",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "required": true
     }
   ]

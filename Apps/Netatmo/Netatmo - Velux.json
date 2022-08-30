@@ -1,0 +1,72 @@
+{
+  "packageName": "Netatmo - Velux",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "dateReleased": "2022-08-18",
+  "documentationLink": "",
+  "communityLink": "",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "apps": [
+    {
+      "name": "Netatmo - Velux",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo%20-%20Velux.groovy",
+      "version": "1.0.0",
+      "required": true,
+      "oauth": false,
+      "primary": true
+    }
+  ],
+  "drivers": [
+    {
+      "name": "Netatmo - Velux - Gateway",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Gateway.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Netatmo - Velux - Departure switch",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Departure%20switch.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Netatmo - Velux - Sensor switch",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Sensor%20switch.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Netatmo - Velux - Home",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Home.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Netatmo - Velux - Room",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Room.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Netatmo - Velux - Shutter",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Shutter.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Netatmo - Velux - Window",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Window.groovy",
+      "version": "1.0.0",
+      "required": true
+    }
+  ]
+}

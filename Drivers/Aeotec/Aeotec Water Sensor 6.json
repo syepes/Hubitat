@@ -12,7 +12,7 @@
       "name": "Aeotec Water Sensor 6",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Water%20Sensor%206.groovy",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "required": true
     }
   ]

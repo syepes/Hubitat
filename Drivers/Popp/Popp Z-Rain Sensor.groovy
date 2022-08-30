@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.2"
+@Field String VERSION = "1.1.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -64,7 +64,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
     state.driverInfo.configSynced = false
   }
 
@@ -98,8 +98,6 @@ def refresh() {
 
 def configure() {
   logger("debug", "configure()")
-  schedule("0 0 12 */7 * ?", updateCheck)
-
   logger("info", "Device configurations will be synchronized on the next device wakeUp")
   state.driverInfo.configSynced = false
 }
@@ -292,7 +290,7 @@ def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
     logger("debug", "zwaveEvent(MeterReport) - deltaTime:${cmd.deltaTime} secs, meterType:${meterTypes[cmd.meterType]}, meterValue:${cmd.scaledMeterValue}, previousMeterValue:${cmd.scaledPreviousMeterValue}, scale:${cmd.scale}, unit: ${waterUnits[cmd.scale]}, precision:${cmd.precision}, rateType:${cmd.rateType}")
     def map = [name: "rainMeter", value: cmd.scaledMeterValue, unit: waterUnits[cmd.scale], displayed: true]
     result << createEvent(map)
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} ${meterTypes[cmd.meterType]} ${map.name} is ${map.value} ${map.unit}"
     } else {
       logger("info", "${meterTypes[cmd.meterType]} ${map.name} is ${map.value} ${map.unit}")
@@ -591,30 +589,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Popp/Popp%20Z-Rain%20Sensor.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

@@ -2,7 +2,7 @@
   "packageName": "Zipato Mini RFID Keypad",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2021-02-04",
+  "dateReleased": "2022-08-18",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-zipato-mini-rfid-keypad/35119/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Zipato Mini RFID Keypad",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Zipato/Zipato%20Mini%20RFID%20Keypad.groovy",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "required": true
     }
   ]

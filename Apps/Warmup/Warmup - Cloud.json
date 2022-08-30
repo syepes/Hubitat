@@ -1,0 +1,37 @@
+{
+  "packageName": "Warmup - Cloud",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "dateReleased": "2022-08-18",
+  "documentationLink": "",
+  "communityLink": "",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "apps": [
+    {
+      "name": "Warmup - Cloud",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Warmup/Warmup%20-%20Cloud.groovy",
+      "version": "1.0.0",
+      "required": true,
+      "oauth": false,
+      "primary": true
+    }
+  ],
+  "drivers": [
+    {
+      "name": "Warmup - Cloud - Location",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Warmup/Warmup%20-%20Cloud%20-%20Location.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Warmup - Cloud - Room",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Warmup/Warmup%20-%20Cloud%20-%20Room.groovy",
+      "version": "1.0.0",
+      "required": true
+    }
+  ]
+}

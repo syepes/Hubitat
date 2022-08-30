@@ -66,7 +66,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
 
   if (state.deviceInfo == null) {
@@ -98,8 +98,6 @@ def updated() {
 def initialize() {
   logger("debug", "initialize()")
 
-  schedule("0 0 12 */7 * ?", updateCheck)
-
   if (scheduledTake.toInteger()) {
     if (['2', '5', '10', '15', '30'].contains(scheduledTake) ) {
       schedule("0 */${scheduledTake} * ? * *", take)
@@ -120,7 +118,7 @@ def parse(String description) {
 
 def on() {
   logger("debug", "on()")
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Was turned on"
   } else {
     logger("info", "Was turned on")
@@ -130,7 +128,7 @@ def on() {
 
 def off() {
   logger("debug", "off()")
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Was turned off"
   } else {
     logger("info", "Was turned off")
@@ -151,7 +149,7 @@ def setAKey(key) {
 
 def human(String snapshot_url=null) {
   logger("debug", "human(${snapshot_url})")
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Has detected motion (Human)"
   } else {
     logger("info", "Has detected motion (Human)")
@@ -179,7 +177,7 @@ def cancelHuman() {
 
 def vehicle(String snapshot_url=null) {
   logger("debug", "vehicle(${snapshot_url})")
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Has detected motion (Vehicle)"
   } else {
     logger("info", "Has detected motion (Vehicle)")
@@ -207,7 +205,7 @@ def cancelVehicle() {
 
 def animal(String snapshot_url=null) {
   logger("debug", "animal(${snapshot_url})")
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Has detected motion (Animal)"
   } else {
     logger("info", "Has detected motion (Animal)")
@@ -235,7 +233,7 @@ def cancelAnimal() {
 
 def motion(String snapshot_url=null) {
   logger("debug", "motion(${snapshot_url})")
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Has detected motion"
   } else {
     logger("info", "Has detected motion")
@@ -292,7 +290,7 @@ def light_mode(mode="auto") {
   if (!['auto','on','off'].contains(mode)) {
     logger("error", "light_mode(${mode}) - Floodlight Mode is incorrect")
   } else {
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Floodlight Mode ${mode}"
     } else {
       logger("info", "Floodlight Mode ${mode}")
@@ -334,7 +332,7 @@ def light_intensity(intensity=100) {
     return
   }
 
-  if(logDescText) {
+  if (logDescText) {
     log.info "${device.displayName} Floodlight intensity set to ${intensity}"
   } else {
     logger("info", "Floodlight intensity set to ${intensity}")
@@ -385,30 +383,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Presence.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

@@ -25,6 +25,18 @@
       ]
     },
     {
+      "name": "Netatmo - Velux",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo%20-%20Velux.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Cloud",
+        "Safety & Security",
+        "Doors & Windows"
+      ]
+    },
+    {
       "name": "MetricLogger",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/VictoriaMetrics/MetricLogger.json",
       "description": "",
@@ -220,6 +232,30 @@
       "category": "Integrations",
       "tags": [
         "ZWave",
+        "Temperature & Humidity"
+      ]
+    },
+    {
+      "name": "Panasonic - Comfort Cloud",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/PanasonicComfortCloud/Panasonic%20-%20Comfort%20Cloud.groovy",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Cloud",
+        "Climate Control",
+        "Temperature & Humidity"
+      ]
+    },
+    {
+      "name": "Warmup - Cloud",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Warmup/Warmup%20-%20Cloud.groovy",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Cloud",
+        "Climate Control",
         "Temperature & Humidity"
       ]
     }

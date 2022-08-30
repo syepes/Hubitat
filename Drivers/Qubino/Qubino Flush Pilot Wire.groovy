@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.3"
+@Field String VERSION = "1.1.5"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -44,7 +44,7 @@ metadata {
   preferences {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
-      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
+      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: true, required: false
       input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
     }
     section { // Configuration
@@ -67,7 +67,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
 
   if (state.deviceInfo == null) {
@@ -148,7 +148,7 @@ def onTimer(String duration) {
   if (duration_value == null) {
     logger("error", "Time value(${duration}) is incorrect")
   } else {
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Pilot turned on for ${duration} (${duration_value})"
     } else {
       logger("info", "Pilot turned on for ${duration} (${duration_value})")
@@ -167,8 +167,6 @@ def configure() {
   logger("debug", "configure()")
   def cmds = []
   def result = []
-
-  schedule("0 0 12 */7 * ?", updateCheck)
 
   if (stateCheckInterval.toInteger()) {
     if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
@@ -264,7 +262,7 @@ def pilotMode(mode="Stop") {
   if (mode_value == null) {
     logger("error", "Pilot Mode (${mode}) is incorrect")
   } else {
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Pilot Mode set to ${mode} (${mode_value})"
     } else {
       logger("info", "Pilot Mode set to ${mode} (${mode_value})")
@@ -321,11 +319,6 @@ def zwaveEvent(hubitat.zwave.commands.switchallv1.SwitchAllReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd, Integer endPoint=null) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
-  if(logDescText) {
-    log.info "${device.displayName} Was turned ${cmd.value ? "on" : "off"}"
-  } else {
-    logger("info", "Was turned ${cmd.value ? "on" : "off"}")
-  }
   setLevelEvent(cmd)
 }
 
@@ -336,11 +329,6 @@ def zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.switchmultilevelv3.SwitchMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SwitchMultilevelReport) - cmd: ${cmd.inspect()}")
-  if(logDescText) {
-    log.info "${device.displayName} Was turned ${cmd.value ? "on" : "off"}"
-  } else {
-    logger("info", "Was turned ${cmd.value ? "on" : "off"}")
-  }
   setLevelEvent(cmd)
 }
 
@@ -355,7 +343,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
 
   if (cmd.sensorType == 1) {
     result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}"
     } else {
       logger("info", "Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}")
@@ -552,10 +540,20 @@ private setLevelEvent(hubitat.zwave.Command cmd) {
   logger("debug", "setLevelEvent(Command) - cmd: ${cmd.inspect()}")
   def result = []
 
+  String cv = device.currentValue("switch")
   String value = (cmd.value ? "on" : "off")
+  boolean isStateChange = (cv?.toString() != value ? true : false)
   Map mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",99:"Comfort", 100:"Comfort"]
 
-  result << createEvent(name: "switch", value: value, descriptionText: "Was turned $value")
+  if (isStateChange) {
+    if (logDescText) {
+      log.info "${device.displayName} Was turned ${value} (${mode_map[cmd.value?.toInteger()]})"
+    } else {
+      logger("info", "Was turned ${value} (${mode_map[cmd.value?.toInteger()]})")
+    }
+  }
+
+  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value} (${mode_map[cmd.value?.toInteger()]})")
   result << createEvent(name: "level", value: cmd.value == 99 ? 100 : cmd.value , unit: "%")
   result << createEvent(name: "mode", value: mode_map[cmd.value?.toInteger()])
 
@@ -635,30 +633,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Qubino/Qubino%20Flush%20Pilot%20Wire.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

@@ -2,7 +2,7 @@
   "packageName": "Fibaro Smoke Sensor",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2020-10-28",
+  "dateReleased": "2022-08-18",
   "documentationLink": "",
   "communityLink": "https://community.hubitat.com/t/release-fibaro-smoke-sensor/32953/1",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
@@ -12,7 +12,7 @@
       "name": "Fibaro Smoke Sensor",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Fibaro/Fibaro%20Smoke%20Sensor.groovy",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "required": true
     }
   ]

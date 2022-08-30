@@ -1,0 +1,37 @@
+{
+  "packageName": "Panasonic - Comfort Cloud",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "dateReleased": "2022-08-18",
+  "documentationLink": "",
+  "communityLink": "",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "apps": [
+    {
+      "name": "Panasonic - Comfort Cloud",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/PanasonicComfortCloud/Panasonic%20-%20Comfort%20Cloud.groovy",
+      "version": "1.0.0",
+      "required": true,
+      "oauth": false,
+      "primary": true
+    }
+  ],
+  "drivers": [
+    {
+      "name": "Panasonic - Comfort Cloud - Group",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/PanasonicComfortCloud/Panasonic%20-%20Comfort%20Cloud%20-%20Group.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Panasonic - Comfort Cloud - AC",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/PanasonicComfortCloud/Panasonic%20-%20Comfort%20Cloud%20-%20AC.groovy",
+      "version": "1.0.0",
+      "required": true
+    }
+  ]
+}

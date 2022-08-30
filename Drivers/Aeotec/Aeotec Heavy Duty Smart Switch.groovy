@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.3"
+@Field String VERSION = "1.1.5"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -25,6 +25,7 @@ metadata {
     capability "Switch"
     capability "Sensor"
     capability "Power Meter"
+    capability "Current Meter"
     capability "Energy Meter"
     capability "Voltage Measurement"
     capability "Temperature Measurement"
@@ -35,8 +36,6 @@ metadata {
 
     command "clearState"
     command "reset"
-
-    attribute "current", "number"
 
     fingerprint inClusters: "0x25,0x32"
     fingerprint mfr: "0086", prod: "0103", model: "004E", deviceJoinName: "Aeotec Heavy Duty Smart Switch" //US
@@ -50,7 +49,7 @@ metadata {
   preferences {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
-      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
+      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: true, required: false
       input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
     }
     section { // Configuration
@@ -74,7 +73,7 @@ def installed() {
   logger("debug", "installed(${VERSION})")
 
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
 
   if (state.deviceInfo == null) {
@@ -165,8 +164,6 @@ def configure() {
   def cmds = []
   def result = []
 
-  schedule("0 0 12 */7 * ?", updateCheck)
-
   if (stateCheckInterval.toInteger()) {
     if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
       schedule("0 */${stateCheckInterval} * ? * *", checkState)
@@ -231,7 +228,7 @@ def reset() {
 
   sendEvent(name: "power", value: "0", displayed: true, unit: "W")
   sendEvent(name: "energy", value: "0", displayed: true, unit: "kWh")
-  sendEvent(name: "current", value: "0", displayed: true, unit: "A")
+  sendEvent(name: "amperage", value: "0", displayed: true, unit: "A")
   sendEvent(name: "voltage", value: "0", displayed: true, unit: "V")
 
   cmdSequence([
@@ -295,7 +292,7 @@ def handleMeterReport(cmd){
 
   def result = []
   List meterTypes = ["Unknown", "Electric", "Gas", "Water"]
-  List electricNames = ["energy", "energy", "power", "count", "voltage", "current", "powerFactor", "unknown"]
+  List electricNames = ["energy", "energy", "power", "count", "voltage", "amperage", "powerFactor", "unknown"]
   List electricUnits = ["kWh", "kVAh", "W", "pulses", "V", "A", "Power Factor", ""]
   List gasUnits = ["m^3", "ft^3", "", "pulses", ""]
   List waterUnits = ["m^3", "ft^3", "gal"]
@@ -327,7 +324,7 @@ def handleMeterReport(cmd){
         map.value = cmd.scaledMeterValue
       break;
       case 5: //Amps
-        previousValue = device.currentValue("current") ?: cmd.scaledPreviousMeterValue ?: 0
+        previousValue = device.currentValue("amperage") ?: cmd.scaledPreviousMeterValue ?: 0
         map.value = cmd.scaledMeterValue
       break;
       case 6: //Power Factor
@@ -345,7 +342,7 @@ def handleMeterReport(cmd){
     //Check if the value has changed my more than 5%, if so mark as a stateChange
     //map.isStateChange = ((cmd.scaledMeterValue - previousValue).abs() > (cmd.scaledMeterValue * 0.05))
     if (device.currentValue(map.name) != map.value) {
-      if(logDescText) {
+      if (logDescText) {
         log.info "${device.displayName} ${map.descriptionText}"
       } else if(map?.descriptionText) {
         logger("info", "${map.descriptionText}")
@@ -356,7 +353,7 @@ def handleMeterReport(cmd){
   } else { // meter
     Map map = [name: "meter", descriptionText: cmd.toString()]
     result << createEvent(map)
-    if(logDescText) {
+    if (logDescText) {
       log.info "${device.displayName} ${map.descriptionText}"
     } else if(map?.descriptionText) {
       logger("info", "${map.descriptionText}")
@@ -397,26 +394,31 @@ def zwaveEvent(hubitat.zwave.commands.meterv4.MeterReport cmd) {
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
   logger("trace", "zwaveEvent(BasicReport) - cmd: ${cmd.inspect()}")
-
-  def result = []
-  String value = (cmd.value ? "on" : "off")
-  if(logDescText) {
-    log.info "${device.displayName} Was turned ${value}"
-  } else if(map?.descriptionText) {
-    logger("info", "Was turned ${value}")
-  }
-
-  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
-  result
+  setSwitchEvent(cmd)
 }
 
 def zwaveEvent(hubitat.zwave.commands.basicv1.BasicSet cmd) {
   logger("trace", "zwaveEvent(BasicSet) - cmd: ${cmd.inspect()}")
+  setSwitchEvent(cmd)
+}
 
+private setSwitchEvent(hubitat.zwave.Command cmd) {
+  logger("debug", "setSwitchEvent(Command) - cmd: ${cmd.inspect()}")
   def result = []
-  String value = (cmd.value ? "on" : "off")
-  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
 
+  String cv = device.currentValue("switch")
+  String value = (cmd.value ? "on" : "off")
+  boolean isStateChange = (cv?.toString() != value ? true : false)
+
+  if (isStateChange) {
+    if (logDescText) {
+      log.info "${device.displayName} Was turned ${value}"
+    } else {
+      logger("info", "Was turned ${value}")
+    }
+  }
+
+  result << createEvent(name: "switch", value: value, descriptionText: "Was turned ${value}")
   result
 }
 
@@ -449,7 +451,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
   }
 
   if (device.currentValue(map.name) != map.value) {
-    if(logDescText && map?.descriptionText) {
+    if (logDescText && map?.descriptionText) {
       log.info "${device.displayName} ${map.descriptionText}"
     } else if(map?.descriptionText) {
       logger("info", "${map.descriptionText}")
@@ -693,30 +695,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${device.displayName} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  Map params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Aeotec/Aeotec%20Heavy%20Duty%20Smart%20Switch.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }

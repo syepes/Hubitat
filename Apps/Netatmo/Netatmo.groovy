@@ -40,8 +40,8 @@ definition(
   category: "",
   oauth: true,
   singleInstance: true,
-  iconUrl: "https://github.com/CopyCat73/SmartThings-Dev/raw/master/NetatmoSecurity.png",
-  iconX2Url: "https://github.com/CopyCat73/SmartThings-Dev/raw/master/NetatmoSecurity@2x.png"
+  iconUrl: "https://pbs.twimg.com/profile_images/1214898820577935360/cY4FJMQR_200x200.jpg",
+  iconX2Url: "https://pbs.twimg.com/profile_images/1214898820577935360/cY4FJMQR_400x400.jpg"
 )
 
 preferences {
@@ -58,7 +58,7 @@ mappings {
 def installed() {
   logger("debug", "installed(${VERSION})")
   if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
-    state.driverInfo = [ver:VERSION, status:'Current version']
+    state.driverInfo = [ver:VERSION]
   }
   state.initialSetup = false
   initialize()
@@ -79,7 +79,7 @@ def updated() {
 
   if (!state.driverInfo?.ver || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
     if (state.driverInfo == null || state.driverInfo.isEmpty()) {
-      state.driverInfo = [ver:VERSION, status:'Current version']
+      state.driverInfo = [ver:VERSION]
     }
   }
 
@@ -155,14 +155,16 @@ def initialize() {
     state.webhookInstalled = false
   }
 
-  schedule("0 0 12 */7 * ?", updateCheck)
-
   // Do the initial checkState
   checkState()
-  if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
-    schedule("0 */${stateCheckInterval} * ? * *", checkState)
-  } else {
-    schedule("0 0 */${stateCheckInterval} ? * *", checkState)
+
+  unschedule()
+  if (stateCheckInterval.toInteger()) {
+    if (['2' ,'5', '10', '15', '30'].contains(stateCheckInterval) ) {
+      schedule("0 */${stateCheckInterval} * ? * *", checkState)
+    } else {
+      schedule("0 0 */${stateCheckInterval} ? * *", checkState)
+    }
   }
 }
 
@@ -309,7 +311,7 @@ def oauthInitUrl() {
     logger("debug", "oauthInitUrl() - Set oauthInitState: ${state?.oauthInitState}")
 
     Map oauthParams = [
-      response_type: "code",
+      response_type: 'code',
       client_id: getClientId(),
       client_secret: getClientSecret(),
       state: state.oauthInitState,
@@ -319,8 +321,8 @@ def oauthInitUrl() {
     Map params = [
       uri: getApiUrl(),
       path: getVendorAuthPath(),
-      contentType: "application/json; charset=utf-8",
-      requestContentType: "application/json; charset=utf-8",
+      contentType: 'application/json; charset=utf-8',
+      requestContentType: 'application/json; charset=utf-8',
       queryString: toQueryString(oauthParams)
     ]
 
@@ -343,7 +345,7 @@ def callback() {
     Map tokenParams = [
       client_secret: getClientSecret(),
       client_id : getClientId(),
-      grant_type: "authorization_code",
+      grant_type: 'authorization_code',
       redirect_uri: getCallbackUrl(),
       code: code,
       scope: getScope()
@@ -411,7 +413,7 @@ def webhook() {
         break
         case 'tag_open':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Open detected by ${cd_module}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_module} is open"
           } else {
             logger("info", "${cd_module} is open")
@@ -420,7 +422,7 @@ def webhook() {
         break
         case 'module_connect':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Module connected by ${cd_module}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_module} is connected"
           } else {
             logger("info", "${cd_module} is connected")
@@ -429,7 +431,7 @@ def webhook() {
         break
         case 'module_disconnect':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Module disconnected by ${cd_module}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_module} is disconnected"
           } else {
             logger("info", "${cd_module} is disconnected")
@@ -485,7 +487,7 @@ def webhook() {
         break
         case 'connection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera connection on by ${cd_camera}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_camera} is connected"
           } else {
             logger("info", "${cd_camera} is connected")
@@ -495,7 +497,7 @@ def webhook() {
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera disconnection by ${cd_camera}")
-          if(logDescText) {
+          if (logDescText) {
             log.warn "${app.name} ${cd_camera} is disconnected"
           } else {
             logger("warn", "${cd_camera} is disconnected")
@@ -542,7 +544,7 @@ def webhook() {
         break
         case 'connection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera connection on by ${cd_camera}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_camera} is connected"
           } else {
             logger("info", "${cd_camera} is connected")
@@ -552,7 +554,7 @@ def webhook() {
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Camera disconnection by ${cd_camera}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_camera} is disconnected"
           } else {
             logger("info", "${cd_camera} is disconnected")
@@ -607,7 +609,7 @@ def webhook() {
         break
         case 'connection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell connection on by ${cd_doorbell}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_doorbell} is connected"
           } else {
             logger("info", "${cd_doorbell} is connected")
@@ -617,7 +619,7 @@ def webhook() {
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Doorbell disconnection by ${cd_doorbell}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_doorbell} is disconnected"
           } else {
             logger("info", "${cd_doorbell} is disconnected")
@@ -663,7 +665,7 @@ def webhook() {
       switch (payload?.event_type) {
         case 'connection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Smoke Alarm connection on by ${cd_device}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_device} is connected"
           } else {
             logger("info", "${cd_device} is connected")
@@ -673,7 +675,7 @@ def webhook() {
         break
         case 'disconnection':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Smoke Alarm disconnection by ${cd_device}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_device} is disconnected"
           } else {
             logger("info", "${cd_device} is disconnected")
@@ -683,7 +685,7 @@ def webhook() {
         break
         case 'hush':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Smoke Alarm hushed by ${cd_device}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_device} Alarm hushed for 15 min"
           } else {
             logger("info", "${cd_device} Alarm hushed for 15 min")
@@ -699,7 +701,7 @@ def webhook() {
         break
         case 'wifi_status':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Wifi Status (${payload?.sub_type == 0 ? 'error' : 'ok'}) by ${cd_device}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_device} Wifi ${payload?.sub_type == 0 ? 'error' : 'ok'}"
           } else {
             logger("info", "${cd_device} Wifi ${payload?.sub_type == 0 ? 'error' : 'ok'}")
@@ -707,7 +709,7 @@ def webhook() {
         break
         case 'sound_test':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Sound Test (${payload?.sub_type == 0 ? 'ok' : 'error'}) by ${cd_device}")
-          if(logDescText) {
+          if (logDescText) {
             log.info "${app.name} ${cd_device} Sound Test ${payload?.sub_type == 0 ? 'ok' : 'error'}"
           } else {
             logger("info", "${cd_device} Sound Test ${payload?.sub_type == 0 ? 'ok' : 'error'}")
@@ -826,13 +828,13 @@ private connectionStatus(message, redirectUrl = null) {
   render contentType: 'text/html', data: html
 }
 
-def refreshToken() {
+boolean refreshToken() {
   logger("debug", "refreshToken()")
 
   Map oauthParams = [
     client_secret: getClientSecret(),
     client_id: getClientId(),
-    grant_type: "refresh_token",
+    grant_type: 'refresh_token',
     refresh_token: state.refreshToken
   ]
   Map params = [
@@ -843,21 +845,28 @@ def refreshToken() {
 
   // OAuth Step 2: Request access token with our client Secret and OAuth "Code"
   try {
+    boolean rc = false
     logger("debug", "refreshToken() - URL: ${getVendorTokenPath()}, PARAMS: ${params.inspect()}")
     logger("debug", "refreshToken() - Request: ${getVendorTokenPath()}?${toQueryString(oauthParams)}")
     httpPost(params) { resp ->
       logger("trace", "refreshToken() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
       def slurper = new JsonSlurper();
 
-      resp?.getData()?.each {key, value ->
-        def data = slurper.parseText(key)
-        state.refreshToken = data.refresh_token
-        state.netatmoAccessToken = data.access_token
-        state.tokenExpires = now() + (data.expires_in * 1000)
+      if (resp && resp.getStatus() == 200) {
+        resp?.getData()?.each {key, value ->
+          def data = slurper.parseText(key)
+          state.refreshToken = data.refresh_token
+          state.netatmoAccessToken = data.access_token
+          state.tokenExpires = now() + (data.expires_in * 1000)
+        }
         logger("info", "Refresh token success")
-        return true
+        rc = true
+      } else {
+        logger("error", "Refresh token failed")
+        rc = false
       }
     }
+    return rc
   } catch (Exception e) {
     logger("error", "refreshToken() - Request Exception: ${e.inspect()}")
     return false
@@ -1077,9 +1086,9 @@ private apiGet(String path, Map query, Closure callback) {
       callback.call(resp)
     }
   } catch (Exception e) {
-    logger("error", "apiGet() - Request Exception: ${e.inspect()}")
+    logger("debug", "apiGet() - Request Exception: ${e.inspect()}")
     if(refreshToken()) {
-      logger("warn", "apiGet() - Trying request again after refreshing token")
+      logger("info", "apiGet() - Trying request again after refreshing token")
       httpGet(params)	{ resp ->
         callback.call(resp)
       }
@@ -1107,30 +1116,5 @@ private logger(level, msg) {
     if (levelIdx <= setLevelIdx) {
       log."${level}" "${app.name} ${msg}"
     }
-  }
-}
-
-def updateCheck() {
-  def params = [uri: "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo.groovy"]
-  asynchttpGet("updateCheckHandler", params)
-}
-
-private updateCheckHandler(resp, data) {
-  if (resp?.getStatus() == 200) {
-    Integer ver_online = (resp?.getData() =~ /(?m).*String VERSION = "(\S*)".*/).with { hasGroup() ? it[0][1]?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger() : null }
-    if (ver_online == null) { logger("error", "updateCheck() - Unable to extract version from source file") }
-
-    Integer ver_cur = state.driverInfo?.ver?.replaceAll('[vV]', '')?.replaceAll('\\.', '').toInteger()
-
-    if (ver_online > ver_cur) {
-      logger("info", "New version(${ver_online})")
-      state.driverInfo.status = "New version (${ver_online})"
-    } else if (ver_online == ver_cur) {
-      logger("info", "Current version")
-      state.driverInfo.status = 'Current version'
-    }
-
-  } else {
-    logger("error", "updateCheck() - Unable to download source file")
   }
 }
