@@ -195,7 +195,7 @@ void checkState(String home_id=null) {
   getHomeStatus(home_id)
 
   List<ChildDeviceWrapper> homes = getChildDevices()
-  homes.each { home ->
+  homes?.each { home ->
     List<ChildDeviceWrapper> rooms = home.getChildDevices()
     rooms.each { room ->
       // Modules attachede directly to a Home
@@ -433,7 +433,7 @@ void getHomeStatus(String home_id=null) {
   state.roomState = [:].withDefault { [:].withDefault { [:] } }
   state.moduleState = [:].withDefault { [:].withDefault { [:] } }
 
-  for (i = 0; i < settings.homes.size(); i++) {
+  for (i = 0; i < settings?.homes?.size(); i++) {
     String homeId = settings.homes.getAt(i)
     if (home_id != null) {
       if (home_id != homeId) { continue }

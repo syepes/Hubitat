@@ -27,6 +27,7 @@ metadata {
 
     attribute "id", "string"
     attribute "type", "string"
+    attribute "velux_type", "string"
     attribute "name", "string"
     attribute "homeName", "string"
 
@@ -102,8 +103,10 @@ def setHome(homeID,homeName) {
 
 def setDetails(Map detail) {
   logger("debug", "setDetails(${detail?.inspect()})")
+  state.deviceInfo['velux_type'] = "gateway"
   state.deviceInfo['homeID'] = detail.homeID
   state.deviceInfo['roomID'] = detail.id
+  sendEvent(name: "velux_type", value: "gateway")
   sendEvent(name: "homeName", value: detail.homeName)
 }
 

@@ -26,6 +26,11 @@ metadata {
     capability "Actuator"
     capability "Refresh"
 
+    command "open", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
+    command "close", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
+    command "stop", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
+    command "setPosition", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]], [name:"position", type: "NUMBER", description: ""]]
+
     attribute "city", "string"
     attribute "place_improved", "enum", ["false","true"]
     attribute "trust_location", "enum", ["false","true"]
@@ -81,6 +86,33 @@ def refresh() {
 def parse(String description) {
   logger("trace", "parse() - description: ${description?.inspect()}")
   return []
+}
+
+def open(String velux_type="all") {
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (type =~ /room/) {
+      it.open(velux_type)
+    }
+  }
+}
+
+def close(String velux_type="all") {
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (type =~ /room/) {
+      it.close(velux_type)
+    }
+  }
+}
+
+def setPosition(String velux_type="all", BigDecimal position) {
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (type =~ /room/) {
+      it.setPosition(velux_type, position)
+    }
+  }
 }
 
 def setDetails(Map detail) {

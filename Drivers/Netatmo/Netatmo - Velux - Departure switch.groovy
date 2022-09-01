@@ -26,6 +26,7 @@ metadata {
 
     attribute "id", "string"
     attribute "type", "string"
+    attribute "velux_type", "string"
     attribute "bridge", "string"
     attribute "homeName", "string"
     attribute "roomName", "string"
@@ -90,9 +91,11 @@ def parse(value) {
 
 def setDetails(Map detail) {
   logger("debug", "setDetails(${detail?.inspect()})")
+  state.deviceInfo['velux_type'] = "departure_switch"
   state.deviceInfo['homeID'] = detail.homeID
   if (detail?.roomID) { state.deviceInfo['roomID'] = detail.roomID }
   state.deviceInfo['bridge'] = detail.bridge
+  sendEvent(name: "velux_type", value: "departure_switch")
   sendEvent(name: "homeName", value: detail.homeName)
   sendEvent(name: "bridge", value: detail.bridge)
 }

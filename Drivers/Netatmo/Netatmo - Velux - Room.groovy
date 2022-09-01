@@ -31,7 +31,13 @@ metadata {
     capability "Carbon Dioxide Measurement"
     capability "AirQuality"
 
+    command "open", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
+    command "close", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
+    command "stop", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
+    command "setPosition", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]], [name:"position", type: "NUMBER", description: ""]]
+
     attribute "id", "string"
+    attribute "velux_type", "string"
     attribute "homeName", "string"
     attribute "lux", "number"
     attribute "co2", "number"
@@ -98,10 +104,56 @@ def parse(String description) {
   return []
 }
 
+def close(String velux_type="all") {
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (velux_type == "all" && type =~ /shutter|window/) {
+      it.close()
+    } else if (velux_type == type) {
+      it.close()
+    }
+  }
+}
+
+def open(String velux_type="all") {
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (velux_type == "all" && type =~ /shutter|window/) {
+      it.open()
+    } else if (velux_type == type) {
+      it.open()
+    }
+  }
+}
+
+def stop(String velux_type="all") {
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (velux_type == "all" && type =~ /shutter|window/) {
+      it.stop()
+    } else if (velux_type == type) {
+      it.stop()
+    }
+  }
+}
+
+def setPosition(String velux_type="all", BigDecimal position) {
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (velux_type == "all" && type =~ /shutter|window/) {
+      it.setPosition(position)
+    } else if (velux_type == type) {
+      it.setPosition(position)
+    }
+  }
+}
+
 def setDetails(Map detail) {
   logger("debug", "setDetails(${detail?.inspect()})")
+  state.deviceInfo['velux_type'] = "room"
   state.deviceInfo['homeID'] = detail.homeID
   state.deviceInfo['roomID'] = detail.id
+  sendEvent(name: "velux_type", value: "room")
   sendEvent(name: "homeName", value: detail.homeName)
 }
 
