@@ -51,8 +51,6 @@ metadata {
     attribute "max_comfort_temperature", "number"
     attribute "min_comfort_humidity", "number"
     attribute "min_comfort_temperature", "number"
-
-
   }
   preferences {
     section { // General

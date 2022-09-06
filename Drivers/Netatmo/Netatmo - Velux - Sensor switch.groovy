@@ -45,7 +45,6 @@ metadata {
     attribute "battery_level", "number"
     attribute "last_seen", "number"
     attribute "carbonDioxide-Level", "enum", ["Good","Mediocre","Bad","Harmful","Risk"]
-
   }
   preferences {
     section { // General

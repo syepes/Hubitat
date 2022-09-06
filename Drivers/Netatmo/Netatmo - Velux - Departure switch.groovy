@@ -39,7 +39,6 @@ metadata {
     attribute "battery_percent", "number"
     attribute "battery_level", "number"
     attribute "last_seen", "number"
-
   }
   preferences {
     section { // General

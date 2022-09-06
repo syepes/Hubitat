@@ -41,7 +41,6 @@ metadata {
     attribute "target_position", "number"
     attribute "mode", "string"
     attribute "silent", "string"
-
   }
   preferences {
     section { // General
@@ -140,16 +139,19 @@ def setPosition(BigDecimal value) {
       timeout: 15
     ]
 
-    if (logDescText) {
-      log.info "${device.displayName} Setting Position = ${value}"
-    } else {
-      logger("info", "setPosition() - Setting Position = ${value}")
-    }
-
     logger("trace", "setPosition() - PARAMS: ${params.inspect()}")
     httpPostJson(params) { resp ->
       logger("trace", "setPosition() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
       logger("debug", "setPosition() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Setting Position = ${value}"
+        } else {
+          logger("info", "setPosition() - Setting Position = ${value}")
+        }
+      } else {
+        logger("error", "setPosition() - Failed: ${resp?.getData()?.body?.errors}")
+      }
     }
   } catch (Exception e) {
     logger("error", "setPosition() - Request Exception: ${e.inspect()}")
@@ -174,16 +176,19 @@ def stop() {
       timeout: 15
     ]
 
-    if (logDescText) {
-      log.info "${device.displayName} Stopping all movements"
-    } else {
-      logger("info", "stop() - Stopping all movements")
-    }
-
     logger("trace", "stop() - PARAMS: ${params.inspect()}")
     httpPostJson(params) { resp ->
       logger("trace", "stop() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
       logger("debug", "stop() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Stopping all movements"
+        } else {
+          logger("info", "stop() - Stopping all movements")
+        }
+      } else {
+        logger("error", "stop() - Failed: ${resp?.getData()?.body?.errors}")
+      }
     }
   } catch (Exception e) {
     logger("error", "stop() - Request Exception: ${e.inspect()}")

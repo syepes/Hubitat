@@ -13,6 +13,8 @@
  */
 
 import groovy.transform.Field
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 @Field String VERSION = "1.0.0"
 
@@ -43,9 +45,12 @@ metadata {
     attribute "rain_position", "number"
     attribute "mode", "string"
     attribute "silent", "string"
-
   }
   preferences {
+    section { // Gateway Encryption
+      input name: "signKeyHash", title: "Hash Sign Key", description: "Gateway Encryption Key", type: "text", required: false
+      input name: "signKeyId", title: "Sign Key Id", description: "Gateway Encryption Key ID", type: "text", required: false
+    }
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: true, required: false
@@ -106,7 +111,7 @@ def off() {
 def open() {
   logger("debug", "open()")
   sendEvent(name: "windowShade", value: "opening", displayed: true)
-  setPosition(100)
+  setPositionWithPin(100)
 }
 def on() {
   logger("debug", "on()")
@@ -152,15 +157,70 @@ def setPosition(BigDecimal value) {
     httpPostJson(params) { resp ->
       logger("trace", "setPosition() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
       logger("debug", "setPosition() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Setting Position = ${value}"
+        } else {
+          logger("info", "setPosition() - Setting Position = ${value}")
+        }
+      } else {
+        logger("error", "setPosition() - Failed: ${resp?.getData()?.body?.errors}")
+      }
     }
   } catch (Exception e) {
     logger("error", "setPosition() - Request Exception: ${e.inspect()}")
   }
 }
 
+def setPositionWithPin(BigDecimal value) {
+  logger("debug", "setPositionWithPin(${value})")
+
+  if (signKeyHash == null || signKeyHash == "" || signKeyId == null || signKeyId == "") {
+    logger("warn", "setPositionWithPin() - The Gateway encryption keys are required to open this device")
+    return
+  }
+
+  try {
+    def app = parent?.getParent()?.getParent()
+    String auth = app.state.authToken
+    Integer ts = (new Date().getTime()/1000) as int
+    String sign_key_id = signKeyId.padLeft(32,"0").decodeHex().encodeBase64().toString().replaceAll('\\+','-').replaceAll('/','_')
+    String hash = generateHash(signKeyHash, "target_position", value.toInteger(), ts, 0, state.deviceInfo.id)
+
+    Map params = [
+      uri: "https://app.velux-active.com/syncapi/v1/setstate",
+      headers: ["Authorization": "Bearer ${auth}"],
+      body: ["home":["id": state.deviceInfo.homeID, "modules":[["bridge": state.deviceInfo.bridge, "id": state.deviceInfo.id, "target_position": value, "nonce": 0, "sign_key_id": sign_key_id, "hash_target_position": hash, "timestamp": ts]]]],
+      timeout: 15
+    ]
+
+    logger("trace", "setPositionWithPin() - PARAMS: ${params.inspect()}")
+    httpPostJson(params) { resp ->
+      logger("trace", "setPositionWithPin() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
+      logger("debug", "setPositionWithPin() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Setting Position = ${value}"
+        } else {
+          logger("info", "setPositionWithPin() - Setting Position = ${value}")
+        }
+      } else {
+        logger("error", "setPositionWithPin() - Failed: ${resp?.getData()?.body?.errors}")
+      }
+    }
+  } catch (Exception e) {
+    logger("error", "setPositionWithPin() - Request Exception: ${e.inspect()}")
+  }
+}
+
 def setLevel(BigDecimal value) {
   logger("debug", "setLevel(${value})")
-  setPosition(value)
+  String cv = device.currentValue("position")
+  if (cv && cv.toInteger() == 0) {
+    setPositionWithPin(value)
+  } else {
+    setPosition(value)
+  }
 }
 
 def stop() {
@@ -176,16 +236,19 @@ def stop() {
       timeout: 15
     ]
 
-    if (logDescText) {
-      log.info "${device.displayName} Stopping all movements"
-    } else {
-      logger("info", "stop() - Stopping all movements")
-    }
-
     logger("trace", "stop() - PARAMS: ${params.inspect()}")
     httpPostJson(params) { resp ->
       logger("trace", "stop() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
       logger("debug", "stop() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Stopping all movements"
+        } else {
+          logger("info", "stop() - Stopping all movements")
+        }
+      } else {
+        logger("error", "stop() - Failed: ${resp?.getData()?.body?.errors}")
+      }
     }
   } catch (Exception e) {
     logger("error", "stop() - Request Exception: ${e.inspect()}")
@@ -195,6 +258,24 @@ def stop() {
 def stopPositionChange() {
   logger("debug", "stopPositionChange()")
   stop()
+}
+
+String generateHash(String hashSignKey, String item_name, Integer level, Integer ts, Integer nonce, String deviceid) {
+  logger("debug", "generateHash(${hashSignKey},${item_name}.${level},${ts},${nonce},${deviceid})")
+
+  String pre_hash = "${item_name}${level}${ts}${nonce}${deviceid}"
+  logger("trace", "generateHash() - pre_hash: ${pre_hash}")
+
+  byte[] key
+  try {
+    key = hashSignKey.decodeHex()
+  } catch (Exception e) {
+    logger("error", "generateHash() - Invalid hashSignKey")
+  }
+  final SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA512");
+  final Mac mac = Mac.getInstance("HmacSHA512");
+  mac.init(keySpec);
+  return mac.doFinal("${pre_hash}".getBytes("UTF-8")).encodeBase64().toString().replaceAll('\\+','-').replaceAll('/','_')
 }
 
 def setDetails(Map detail) {
