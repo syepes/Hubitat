@@ -80,21 +80,11 @@ Map login() {
 
 Map config() {
   logger("debug", "config()")
+  Map devices = getHomeDevicesList()
 
-  Map tmpList = getHomeDevicesList()
-  Map homes = tmpList[0]
-  Map rooms = tmpList[1]
-  Map modules = tmpList[2]
-
-  return dynamicPage(name: "config", title: "Config", install: true, uninstall:true) {
-    section("Home") {
-      input name: "homes", title: "Select home(s) to track", type: "enum", required: false, multiple: true, options: homes
-    }
-    section("Room") {
-      input name: "rooms", title: "Select room(s) to track", type: "enum", required: false, multiple: true, options: rooms
-    }
-    section("Module") {
-      input name: "modules", title: "Select module(s) to track", type: "enum", required: false, multiple: true, options: modules
+  return dynamicPage(name: "config", title: "Config", install: true, uninstall:true) {\
+    section("Devices") {
+      input name: "devices", title: "Select Device(s) to track / Home -> Room -> Module", type: "enum", required: false, multiple: true, options: devices
     }
     section("Preferences") {
       input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [2:"2min"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
@@ -139,33 +129,27 @@ void initialize() {
   // Pull the latest device info into state
   getHomeStatus()
 
-  settings.homes.each { homeId ->
+  settings.devices.each { moduleId ->
+    Map md = state?.moduleDetail[moduleId]
+    String homeId = md?.homeID
     Map hd = state?.homeDetail[homeId]
-    if(hd) {
-      logger("info", "Creating Home: ${hd.name} (${hd.city})")
+
+    if (md && hd) {
       ChildDeviceWrapper home = createHome(hd)
       if (home) {
-        settings.modules.each { moduleId ->
-          Map md = state?.moduleDetail[moduleId]
-          if (md && md.type ==~ /NXG|NXB|NXD/) {
-            logger("info", "Creating Home Module: ${md.name} (${md.type})")
-            home.addModule(md)
-          }
+        if (md?.type ==~ /NXG|NXB|NXD/) {
+          logger("info", "Creating Home: ${hd.name} (${hd.city}) / Module: ${md.name} (${md.type})")
+          home.addModule(md)
         }
 
-        settings.rooms.each { roomId ->
+        if (md?.roomID) {
+          String roomId = md?.roomID
           Map rd = state?.roomDetail[roomId]
           if (rd) {
-            logger("info", "Creating Room: ${rd.name} (${rd.type})")
             ChildDeviceWrapper room = home.addRoom(rd)
             if (room) {
-              rd.modules.each { moduleId ->
-                Map md = state?.moduleDetail[moduleId]
-                if (md) {
-                  logger("info", "Creating Room Module: ${md.name} (${md.type})")
-                  room.addModule(md)
-                }
-              }
+              logger("info", "Creating Home: ${hd.name} (${hd.city}) / Room: ${rd.name} (${rd.type}) / Module: ${md.name} (${md.type})")
+              room.addModule(md)
             }
           }
         }
@@ -174,7 +158,45 @@ void initialize() {
   }
 
   // Cleanup any other devices that need to go away
-  // TODO
+  def allInstalled = [settings.devices].findAll().join()
+  if (allInstalled.size()>0) {
+    List homes = getChildDevices().collect{ it.getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',3)?.getAt(0) } } }?.flatten()?.unique()
+    List rooms = getChildDevices().collect{ it.getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',3)?.getAt(1) } } }?.flatten()?.unique()
+    List modules = getChildDevices().collect{ it.getChildDevices().collect{
+      if (it.getChildDevices()) {
+        it.getChildDevices().collect{ it.deviceNetworkId?.split('-',3)?.getAt(2) }
+      } else {
+        it.deviceNetworkId?.split('-',2)?.getAt(1)
+      }
+    } }?.flatten()?.unique()
+    List delete = modules.findAll{ !allInstalled.contains(it) }
+
+    getChildDevices()?.each { hd ->
+      if (homes.contains(hd?.deviceNetworkId)) {
+        hd?.getChildDevices()?.each { rd ->
+          String devIDH = rd?.deviceNetworkId?.split('-',2)?.getAt(1)
+          if (delete.contains(devIDH)) {
+            logger("info", "Removing Home Device: ${hd.deviceNetworkId}-${devIDH}")
+            hd.deleteChildDevice(hd.deviceNetworkId +"-"+ devIDH)
+          }
+
+          rd?.getChildDevices()?.each { md ->
+            String devIDR = md?.deviceNetworkId?.split('-',3)?.getAt(2)
+            if (delete.contains(devIDR)) {
+              logger("info", "Removing Room Device: ${rd.deviceNetworkId}-${devIDR}")
+              rd.deleteChildDevice(rd.deviceNetworkId +"-"+ devIDR)
+            }
+          }
+        }
+      } else {
+        logger("info", "Removing Home: ${hd.deviceNetworkId}")
+        deleteChildDevice(hd?.deviceNetworkId)
+      }
+    }
+  } else {
+    logger("info", "Removing all devices")
+    removeChildDevices(getChildDevices())
+  }
 
   // Do the initial checkState
   checkState()
@@ -342,10 +364,7 @@ boolean refreshToken() {
 Map getHomeDevicesList() {
   logger("debug", "getHomeDevicesList()")
 
-  Map homeList = [:]
-  Map roomList = [:]
-  Map moduleList = [:]
-  Map combinedList = [:]
+  Map deviceList = [:]
   state.homeDetail = [:]
   state.roomDetail = [:]
   state.moduleDetail = [:]
@@ -356,7 +375,6 @@ Map getHomeDevicesList() {
     if (resp) {
       resp.data.body.homes.each { home ->
         String keyHome = home.id
-        homeList[keyHome] = home.name
         state.homeDetail[keyHome] = ["id" : keyHome]
         state.homeDetail[keyHome] << ["name" : home.name]
         state.homeDetail[keyHome] << ["country" : home.country]
@@ -369,7 +387,6 @@ Map getHomeDevicesList() {
 
         home.rooms.each { room ->
           String keyRoom = room.id
-          roomList[keyRoom] = room.name
           state.roomDetail[keyRoom] = ["id" : keyRoom]
           state.roomDetail[keyRoom] << ["name" : room.name]
           state.roomDetail[keyRoom] << ["type" : room.type]
@@ -381,7 +398,13 @@ Map getHomeDevicesList() {
 
         home.modules.each { module ->
           String keyModule = module.id
-          moduleList[keyModule] = module.name
+          if(module?.room_id) {
+            String roomName = state.roomDetail[module?.room_id].name
+            deviceList[keyModule] = "${home.name} -> ${roomName} -> ${module.name}"
+          } else {
+            deviceList[keyModule] = "${home.name} -> ${module.name}"
+          }
+
           state.moduleDetail[keyModule] = ["id" : keyModule]
           state.moduleDetail[keyModule] << ["name" : module.name]
           state.moduleDetail[keyModule] << ["type" : module.type]
@@ -419,11 +442,8 @@ Map getHomeDevicesList() {
   }
 
   // Merge data
-  logger("debug", "getHomeDevicesList() - homeList: ${homeList.sort()}, roomList: ${roomList.sort()}, moduleList: ${moduleList.sort()}")
-  combinedList[0] = homeList.sort() { it.value.toLowerCase() }
-  combinedList[1] = roomList.sort() { it.value.toLowerCase() }
-  combinedList[2] = moduleList.sort() { it.value.toLowerCase() }
-  return combinedList
+  logger("debug", "getHomeDevicesList() - deviceList: ${deviceList.sort()}")
+  return deviceList.sort() { it.value.toLowerCase() }
 }
 
 
@@ -433,10 +453,9 @@ void getHomeStatus(String home_id=null) {
   state.roomState = [:].withDefault { [:].withDefault { [:] } }
   state.moduleState = [:].withDefault { [:].withDefault { [:] } }
 
-  for (i = 0; i < settings?.homes?.size(); i++) {
-    String homeId = settings.homes.getAt(i)
+  state?.homeDetail?.keySet()?.each { homeId ->
     if (home_id != null) {
-      if (home_id != homeId) { continue }
+      if (home_id != homeId) { return }
     }
 
     Map query = ["home_id": homeId]
