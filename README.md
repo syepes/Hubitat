@@ -27,7 +27,7 @@ Netatmo         | [Security - Smart Smoke Detector](https://www.netatmo.com/en-u
 Netatmo         | [Weather - Smart Home Weather Station](https://www.netatmo.com/en-us/security/cam-outdoor) | WIP (But don't own this device)
 Netatmo         | [Weather - Smart Rain Gauge](https://www.netatmo.com/en-us/security/cam-outdoor) | WIP (But don't own this device)
 Netatmo         | [Weather - Smart Anemometer](https://www.netatmo.com/en-us/security/cam-outdoor) | WIP (But don't own this device)
-Netatmo - Velux | [VELUX ACTIVE with NETATMO](https://www.netatmo.com/fr-fr/partners/velux) | Working (KIX 300)
+Netatmo - Velux | [VELUX ACTIVE with NETATMO](https://www.netatmo.com/fr-fr/partners/velux) | Working (KIX 300), Special thanks to [ZTHawk](https://github.com/ZTHawk) for the decoding help.
 Orvibo          | [Smart Temperature & Humidity Sensor](https://www.orvibo.com/en/product/temp_hum_sensor.html) | ST30 (Working)
 Panasonic       | [Comfort Cloud - Air Conditioner](https://www.panasonic.com/global/hvac/air-conditioning/download_comfortcloud_app.html) | Working
 Qubino          | [Flush Pilot Wire](https://cdn.shopify.com/s/files/1/0066/8149/3559/files/qubino-flush-pilot-wire-plus-user-manual-v1-1-eng.pdf) | ZMNHJD1(Working)
