@@ -142,10 +142,10 @@ void initialize() {
   }
 
   // Cleanup any other devices that need to go away
-  def allInstalled = [settings.devices].findAll().join()
+  List allInstalled = [settings.devices].findAll().join()
   if (allInstalled.size()>0) {
-    List groups = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',2)?.getAt(0) } }.flatten()
-    List device = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',2)?.getAt(1) } }.flatten()
+    List groups = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',2)?.getAt(0) } }?.flatten()?.unique()
+    List device = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',2)?.getAt(1) } }?.flatten()?.unique()
     List delete = device.findAll{ !allInstalled.contains(it) }
 
     getChildDevices()?.each {
@@ -155,6 +155,7 @@ void initialize() {
           it.deleteChildDevice(it.deviceNetworkId +"-"+ devID)
         }
       } else {
+        logger("info", "Removing Group: ${it.deviceNetworkId}")
         deleteChildDevice(it?.deviceNetworkId)
       }
     }

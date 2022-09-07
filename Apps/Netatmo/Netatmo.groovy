@@ -138,9 +138,9 @@ def initialize() {
   }
 
   // Cleanup any other devices that need to go away
-  def allInstalled = [settings.devices, settings.people].findAll().join()
+  List allInstalled = [settings.devices, settings.people].findAll().join()
   if (allInstalled.size()>0) {
-    def delete = getChildDevices().findAll{ !allInstalled.contains(it.deviceNetworkId) }
+    List delete = getChildDevices().findAll{ !allInstalled.contains(it.deviceNetworkId) }
     logger("info", "Removing devices: ${delete.inspect()}")
     delete.each { deleteChildDevice(it.deviceNetworkId) }
   } else {

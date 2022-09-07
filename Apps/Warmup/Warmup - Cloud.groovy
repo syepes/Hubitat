@@ -146,7 +146,7 @@ void initialize() {
   }
 
   // Cleanup any other devices that need to go away
-  def allInstalled = [settings.rooms].findAll().join()
+  List allInstalled = [settings.rooms].findAll().join()
   if (allInstalled.size()>0) {
     List groups = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-')?.getAt(0) } }.flatten()
     List device = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-')?.getAt(1) } }.flatten()
@@ -155,10 +155,11 @@ void initialize() {
     getChildDevices()?.each {
       if (groups.contains(it?.deviceNetworkId)) {
         delete.each { roomID ->
-          logger("info", "Removing device: ${it.deviceNetworkId}-${roomID}")
+          logger("info", "Removing Device: ${it.deviceNetworkId}-${roomID}")
           it.deleteChildDevice(it.deviceNetworkId +"-"+ roomID)
         }
       } else {
+        logger("info", "Removing Group: ${it.deviceNetworkId}")
         deleteChildDevice(it?.deviceNetworkId)
       }
     }
