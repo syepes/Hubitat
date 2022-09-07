@@ -237,7 +237,7 @@
     },
     {
       "name": "Panasonic - Comfort Cloud",
-      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/PanasonicComfortCloud/Panasonic%20-%20Comfort%20Cloud.groovy",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/PanasonicComfortCloud/Panasonic%20-%20Comfort%20Cloud.json",
       "description": "",
       "category": "Integrations",
       "tags": [
@@ -249,7 +249,7 @@
     },
     {
       "name": "Warmup - Cloud",
-      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Warmup/Warmup%20-%20Cloud.groovy",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Warmup/Warmup%20-%20Cloud.json",
       "description": "",
       "category": "Integrations",
       "tags": [
