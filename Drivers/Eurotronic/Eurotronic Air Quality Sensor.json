@@ -12,7 +12,7 @@
       "name": "Eurotronic Air Quality Sensor",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Eurotronic/Eurotronic%20Air%20Quality%20Sensor.groovy",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "required": true
     }
   ]

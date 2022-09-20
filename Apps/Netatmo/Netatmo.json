@@ -12,7 +12,7 @@
       "name": "Netatmo",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Netatmo/Netatmo.groovy",
-      "version": "1.2.4",
+      "version": "1.2.5",
       "required": true,
       "oauth": true,
       "primary": true

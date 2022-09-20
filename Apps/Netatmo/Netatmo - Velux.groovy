@@ -158,7 +158,7 @@ void initialize() {
   }
 
   // Cleanup any other devices that need to go away
-  List allInstalled = [settings.devices].findAll().join()
+  List allInstalled = [settings.devices].findAll().flatten()
   if (allInstalled.size()>0) {
     List homes = getChildDevices().collect{ it.getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',3)?.getAt(0) } } }?.flatten()?.unique()
     List rooms = getChildDevices().collect{ it.getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-',3)?.getAt(1) } } }?.flatten()?.unique()

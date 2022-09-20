@@ -23,7 +23,7 @@
       "name": "Netatmo - Velux - Gateway",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Gateway.groovy",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "required": true
     },
     {
@@ -44,7 +44,7 @@
       "name": "Netatmo - Velux - Home",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Home.groovy",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "required": true
     },
     {
@@ -58,14 +58,14 @@
       "name": "Netatmo - Velux - Shutter",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Shutter.groovy",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "required": true
     },
     {
       "name": "Netatmo - Velux - Window",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Window.groovy",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "required": true
     }
   ]

@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -135,7 +135,7 @@ def setPosition(BigDecimal value) {
     Map params = [
       uri: "https://app.velux-active.com/syncapi/v1/setstate",
       headers: ["Authorization": "Bearer ${auth}"],
-      body: ["home":["id": state.deviceInfo.homeID, "modules":[["bridge": state.deviceInfo.bridge, "id": state.deviceInfo.id, "target_position": value]]]],
+      body: ["app_type": "app_velux", "home":["id": state.deviceInfo.homeID, "modules":[["bridge": state.deviceInfo.bridge, "id": state.deviceInfo.id, "target_position": value]]]],
       timeout: 15
     ]
 
@@ -158,11 +158,6 @@ def setPosition(BigDecimal value) {
   }
 }
 
-def setLevel(BigDecimal value) {
-  logger("debug", "setLevel(${value})")
-  setPosition(value)
-}
-
 def stop() {
   logger("debug", "stop()")
   try {
@@ -172,7 +167,7 @@ def stop() {
     Map params = [
       uri: "https://app.velux-active.com/syncapi/v1/setstate",
       headers: ["Authorization": "Bearer ${auth}"],
-      body: ["home":["id": state.deviceInfo.homeID, "modules":[["id": state.deviceInfo.bridge, "stop_movements": "all"]]]],
+      body: ["app_type": "app_velux", "home":["id": state.deviceInfo.homeID, "modules":[["id": state.deviceInfo.bridge, "stop_movements": "all"]]]],
       timeout: 15
     ]
 

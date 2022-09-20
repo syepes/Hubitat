@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -30,6 +30,7 @@ metadata {
     command "close", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
     command "stop", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
     command "setPosition", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]], [name:"position", type: "NUMBER", description: ""]]
+    command "setScenario", [[name:"scenario_type", type: "ENUM", description: "scenario", constraints: ["wake_up","bedtime","away", "home", "away+bedtime", "home+wake_up"]]]
 
     attribute "city", "string"
     attribute "place_improved", "enum", ["false","true"]
@@ -89,6 +90,7 @@ def parse(String description) {
 }
 
 def open(String velux_type="all") {
+  logger("debug", "open(${velux_type?.inspect()})")
   getChildDevices()?.each {
     String type = it?.currentValue("velux_type")
     if (type =~ /room/) {
@@ -98,6 +100,7 @@ def open(String velux_type="all") {
 }
 
 def close(String velux_type="all") {
+  logger("debug", "close(${velux_type?.inspect()})")
   getChildDevices()?.each {
     String type = it?.currentValue("velux_type")
     if (type =~ /room/) {
@@ -106,12 +109,65 @@ def close(String velux_type="all") {
   }
 }
 
+def stop(String velux_type="all") {
+  logger("debug", "stop(${velux_type?.inspect()})")
+  getChildDevices()?.each {
+    String type = it?.currentValue("velux_type")
+    if (type =~ /room/) {
+      it.stop(velux_type)
+    }
+  }
+}
+
 def setPosition(String velux_type="all", BigDecimal position) {
+  logger("debug", "osetPositionpen(${velux_type?.inspect()},${position?.inspect()})")
   getChildDevices()?.each {
     String type = it?.currentValue("velux_type")
     if (type =~ /room/) {
       it.setPosition(velux_type, position)
     }
+  }
+}
+
+def setScenario(String scenario_type="away+bedtime") {
+  logger("debug", "setScenario(${scenario_type?.inspect()})")
+  switch (scenario_type) {
+    case 'away+bedtime':
+      getChildDevices()?.each {
+        String type = it?.currentValue("velux_type")
+        if (type =~ /gateway/) {
+          it.setScenario('away')
+          pauseExecution(2000)
+          it.setScenario('bedtime')
+        }
+      }
+    break
+    case 'home':
+      getChildDevices()?.each {
+        String type = it?.currentValue("velux_type")
+        if (type =~ /gateway/) {
+          it.setScenarioWithPin(scenario_type)
+        }
+      }
+    break
+    case 'home+wake_up':
+      getChildDevices()?.each {
+        String type = it?.currentValue("velux_type")
+        if (type =~ /gateway/) {
+          it.setScenarioWithPin('home')
+          pauseExecution(2000)
+          it.setScenario('wake_up')
+        }
+      }
+    break
+    default:
+      getChildDevices()?.each {
+        String type = it?.currentValue("velux_type")
+        if (type =~ /gateway/) {
+          it.setScenario(scenario_type)
+        }
+      }
+    break
   }
 }
 

@@ -14,8 +14,10 @@
 
 import groovy.transform.Field
 import groovy.json.JsonSlurper
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -46,6 +48,10 @@ metadata {
     attribute "last_seen", "number"
   }
   preferences {
+    section { // Gateway Encryption
+      input name: "signKeyHash", title: "Hash Sign Key", description: "Gateway Encryption Key", type: "text", required: false
+      input name: "signKeyId", title: "Sign Key Id", description: "Gateway Encryption Key ID", type: "text", required: false
+    }
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
@@ -69,7 +75,7 @@ def installed() {
 
 def uninstalled() {
   logger("debug", "uninstalled()")
-unschedule()
+  unschedule()
 }
 
 def updated() {
@@ -124,6 +130,140 @@ def setStates(Map states) {
     }
     sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange)
   }
+}
+
+def setScenario(String scenario_type) {
+  logger("debug", "setScenario(${scenario_type})")
+
+  try {
+    def app = parent?.getParent()
+    String auth = app.state.authToken
+
+    Map params = [
+      uri: "https://app.velux-active.com/syncapi/v1/setstate",
+      headers: ["Authorization": "Bearer ${auth}"],
+      body: ["app_type": "app_velux", "home":["id": state.deviceInfo.homeID, "modules":[["id": state.deviceInfo.roomID, "scenario": scenario_type]]]],
+      timeout: 15
+    ]
+
+    logger("trace", "setScenario() - PARAMS: ${params.inspect()}")
+    httpPostJson(params) { resp ->
+      logger("trace", "setScenario() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
+      logger("debug", "setScenario() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Setting Home Scenario = ${scenario_type}"
+        } else {
+          logger("info", "setScenario() - Setting Home Scenario = ${scenario_type}")
+        }
+      } else {
+        logger("error", "setScenario() - Failed: ${resp?.getData()?.body?.errors}")
+      }
+    }
+  } catch (Exception e) {
+    logger("error", "setScenario() - Request Exception: ${e.inspect()}")
+  }
+}
+
+def setScenarioWithPin(String scenario_type) {
+  logger("debug", "setScenarioWithPin(${scenario_type})")
+
+  try {
+    def app = parent?.getParent()
+    String auth = app.state.authToken
+
+    Integer ts = (new Date().getTime()/1000) as int
+    String sign_key_id = signKeyId.padLeft(32,"0").decodeHex().encodeBase64().toString().replaceAll('\\+','-').replaceAll('/','_')
+    String hash = generateHash(signKeyHash, "scenario${scenario_type}", 0, ts, 0, state.deviceInfo.roomID)
+
+    Map params = [
+      uri: "https://app.velux-active.com/syncapi/v1/setstate",
+      headers: ["Authorization": "Bearer ${auth}"],
+      body: ["app_type": "app_velux", "home":["id": state.deviceInfo.homeID, "timezone": location?.timeZone?.ID, "modules":[["id": state.deviceInfo.roomID, "scenario": scenario_type, "nonce": 0, "sign_key_id": sign_key_id, "hash_scenario": hash, "timestamp": ts]]]],
+      timeout: 15
+    ]
+
+    logger("trace", "setScenarioWithPin() - PARAMS: ${params.inspect()}")
+    httpPostJson(params) { resp ->
+      logger("trace", "setScenarioWithPin() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
+      logger("debug", "setScenarioWithPin() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Setting Home Scenario = ${scenario_type}"
+        } else {
+          logger("info", "setScenarioWithPin() - Setting Home Scenario = ${scenario_type}")
+        }
+      } else {
+        logger("error", "setScenarioWithPin() - Failed: ${resp?.getData()?.body?.errors}")
+      }
+    }
+  } catch (Exception e) {
+    logger("error", "setScenarioWithPin() - Request Exception: ${e.inspect()}")
+  }
+}
+
+def setPositionWithPin(String deviceid, BigDecimal value) {
+  logger("debug", "setPositionWithPin(${deviceid},${value})")
+
+  if (signKeyHash == null || signKeyHash == "" || signKeyId == null || signKeyId == "") {
+    logger("warn", "setPositionWithPin() - The Gateway encryption keys are required to open this device")
+    return
+  }
+
+  try {
+    def app = parent?.getParent()
+    String auth = app.state.authToken
+    Integer ts = (new Date().getTime()/1000) as int
+    String sign_key_id = signKeyId.padLeft(32,"0").decodeHex().encodeBase64().toString().replaceAll('\\+','-').replaceAll('/','_')
+    String hash = generateHash(signKeyHash, "target_position", value.toInteger(), ts, 0, deviceid)
+
+    Map params = [
+      uri: "https://app.velux-active.com/syncapi/v1/setstate",
+      headers: ["Authorization": "Bearer ${auth}"],
+      body: ["app_type": "app_velux", "home":["id": state.deviceInfo.homeID, "timezone": location?.timeZone?.ID, "modules":[["bridge": state.deviceInfo.roomID, "id": deviceid, "force": true, "target_position": value, "nonce": 0, "sign_key_id": sign_key_id, "hash_target_position": hash, "timestamp": ts]]]],
+      timeout: 15
+    ]
+
+    logger("trace", "setPositionWithPin() - PARAMS: ${params.inspect()}")
+    httpPostJson(params) { resp ->
+      logger("trace", "setPositionWithPin() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
+      logger("debug", "setPositionWithPin() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
+        if (logDescText) {
+          log.info "${device.displayName} Setting Position = ${value}"
+        } else {
+          logger("info", "setPositionWithPin() - Setting Position = ${value}")
+        }
+      } else {
+        logger("error", "setPositionWithPin() - Failed: ${resp?.getData()?.body?.errors}")
+      }
+    }
+  } catch (Exception e) {
+    logger("error", "setPositionWithPin() - Request Exception: ${e.inspect()}")
+  }
+}
+
+private String generateHash(String hashSignKey, String item_name, Integer level, Integer ts, Integer nonce, String deviceid) {
+  logger("debug", "generateHash(${hashSignKey},${item_name},${level},${ts},${nonce},${deviceid})")
+
+  String pre_hash
+  if (level.toInteger() == 0) {
+    pre_hash = "${item_name}${ts}${nonce}${deviceid}"
+  } else {
+    pre_hash = "${item_name}${level}${ts}${nonce}${deviceid}"
+  }
+  logger("trace", "generateHash() - pre_hash: ${pre_hash}")
+
+  byte[] key
+  try {
+    key = hashSignKey.decodeHex()
+  } catch (Exception e) {
+    logger("error", "generateHash() - Invalid hashSignKey")
+  }
+  final SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA512");
+  final Mac mac = Mac.getInstance("HmacSHA512");
+  mac.init(keySpec);
+  return mac.doFinal("${pre_hash}".getBytes("UTF-8")).encodeBase64().toString().replaceAll('\\+','-').replaceAll('/','_')
 }
 
 /**

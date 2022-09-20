@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -146,7 +146,7 @@ void initialize() {
   }
 
   // Cleanup any other devices that need to go away
-  List allInstalled = [settings.rooms].findAll().join()
+  List allInstalled = [settings.rooms].findAll().flatten()
   if (allInstalled.size()>0) {
     List groups = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-')?.getAt(0) } }.flatten()
     List device = getChildDevices().collect{ it.getChildDevices().collect{ it.deviceNetworkId?.split('-')?.getAt(1) } }.flatten()

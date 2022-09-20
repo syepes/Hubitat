@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -294,19 +294,19 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv10.SensorMultilevelReport
     break
     case 39:
       map.name = "VOC"
-      map.value = (cmd.scaledSensorValue * 1000)
-      map.unit = "ppm"
+      map.value = (cmd.scaledSensorValue)
+      map.unit = "ppb"
       map.descriptionText = "VOC is ${map.value} ${map.unit}"
 
-      if (map.value < 65) {
+      if (map.value < 0.065) {
         result << createEvent(name: "VOC-Level", value: "Outstanding", displayed: true)
-      } else if (map.value < 220) {
+      } else if (map.value < 0.220) {
         result << createEvent(name: "VOC-Level", value: "Good", displayed: true)
-      } else if (map.value < 660) {
+      } else if (map.value < 0.660) {
         result << createEvent(name: "VOC-Level", value: "Mediocre", displayed: true)
-      } else if (map.value < 2200) {
+      } else if (map.value < 2.200) {
         result << createEvent(name: "VOC-Level", value: "Bad", displayed: true)
-      } else if (map.value < 5500) {
+      } else if (map.value < 5.500) {
         result << createEvent(name: "VOC-Level", value: "Harmful", displayed: true)
       } else {
         result << createEvent(name: "VOC-Level", value: "Risk", displayed: true)
