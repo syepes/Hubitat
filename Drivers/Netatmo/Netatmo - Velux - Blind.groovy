@@ -14,13 +14,13 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Netatmo - Velux - Window", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Window.groovy") {
+  definition (name: "Netatmo - Velux - Blind", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Blind.groovy") {
     capability "Actuator"
     capability "WindowShade"
     command "stop"
@@ -40,8 +40,6 @@ metadata {
     attribute "firmware_revision", "number"
     attribute "current_position", "number"
     attribute "target_position", "number"
-    attribute "secure_position", "number"
-    attribute "rain_position", "number"
     attribute "mode", "string"
     attribute "silent", "string"
   }
@@ -108,7 +106,6 @@ def open() {
   sendEvent(name: "windowShade", value: "opening", displayed: true)
   setPosition(100)
 }
-
 def on() {
   logger("debug", "on()")
   open()
@@ -131,24 +128,6 @@ def startPositionChange(value) {
 
 def setPosition(BigDecimal value) {
   logger("debug", "setPosition(${value})")
-  String cv = device.currentValue("position")
-  String cv_secure_position = device.currentValue("secure_position")
-
-  if (cv && cv.toInteger() <= cv_secure_position.toInteger()) {
-    def home = parent?.getParent()
-    home?.getChildDevices()?.each { dev ->
-      String type = dev.currentValue("velux_type")
-      if (type =~ /gateway/) {
-        dev.setPositionWithPin(state.deviceInfo.id,value)
-      }
-    }
-  } else {
-    setPositionLocal(value)
-  }
-}
-
-private def setPositionLocal(BigDecimal value) {
-  logger("debug", "setPositionLocal(${value})")
 
   try {
     def app = parent?.getParent()?.getParent()
@@ -161,28 +140,22 @@ private def setPositionLocal(BigDecimal value) {
       timeout: 15
     ]
 
-    if (logDescText) {
-      log.info "${device.displayName} Setting Position = ${value}"
-    } else {
-      logger("info", "setPositionLocal() - Setting Position = ${value}")
-    }
-
-    logger("trace", "setPositionLocal() - PARAMS: ${params.inspect()}")
+    logger("trace", "setPosition() - PARAMS: ${params.inspect()}")
     httpPostJson(params) { resp ->
-      logger("trace", "setPositionLocal() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
-      logger("debug", "setPositionLocal() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      logger("trace", "setPosition() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
+      logger("debug", "setPosition() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
       if (resp && resp.getStatus() == 200 && resp?.getData()?.body?.errors == null) {
         if (logDescText) {
           log.info "${device.displayName} Setting Position = ${value}"
         } else {
-          logger("info", "setPositionLocal() - Setting Position = ${value}")
+          logger("info", "setPosition() - Setting Position = ${value}")
         }
       } else {
-        logger("error", "setPositionLocal() - Failed: ${resp?.getData()?.body?.errors}")
+        logger("error", "setPosition() - Failed: ${resp?.getData()?.body?.errors}")
       }
     }
   } catch (Exception e) {
-    logger("error", "setPositionLocal() - Request Exception: ${e.inspect()}")
+    logger("error", "setPosition() - Request Exception: ${e.inspect()}")
   }
 }
 

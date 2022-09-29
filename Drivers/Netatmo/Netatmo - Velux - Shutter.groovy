@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -35,6 +35,7 @@ metadata {
     attribute "roomName", "string"
 
     attribute "reachable", "string"
+    attribute "battery_state", "string"
     attribute "last_seen", "number"
     attribute "firmware_revision", "number"
     attribute "current_position", "number"
@@ -211,21 +212,38 @@ def setStates(Map states) {
     String cv = device.currentValue(k)
     boolean isStateChange = (cv?.toString() != v?.toString() ? true : false)
     if (isStateChange) {
-      if (logDescText && k != "last_seen") {
-        log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
-      } else {
-        logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
-      }
+      logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
     }
     sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange)
 
     if (k == "current_position") {
       sendEvent(name: "position", value: v, displayed: true, isStateChange: isStateChange)
       if (v == 0) {
+        if (isStateChange) {
+          if (logDescText) {
+            log.info "${device.displayName} Was closed"
+          } else {
+            logger("info", "setStates() - Was closed")
+          }
+        }
         sendEvent(name: "windowShade", value: "closed", displayed: true, isStateChange: isStateChange)
       } else if (v == 100 ) {
+        if (isStateChange) {
+          if (logDescText) {
+            log.info "${device.displayName} Is open"
+          } else {
+            logger("info", "setStates() - Is open")
+          }
+        }
         sendEvent(name: "windowShade", value: "open", displayed: true, isStateChange: isStateChange)
       } else {
+        if (isStateChange) {
+          if (logDescText) {
+            log.info "${device.displayName} Is partially open"
+          } else {
+            logger("info", "setStates() - Is partially open")
+          }
+        }
         sendEvent(name: "windowShade", value: "partially open", displayed: true, isStateChange: isStateChange)
       }
     }

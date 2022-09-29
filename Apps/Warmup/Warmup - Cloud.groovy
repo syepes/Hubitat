@@ -429,7 +429,7 @@ def apiPost(String path, Map query, Closure callback) {
       callback.call(resp)
     }
   } catch (Exception e) {
-    logger("error", "apiPost() - Request Exception: ${e.inspect()}")
+    logger("debug", "apiPost() - Request Exception: ${e.inspect()}")
     if(getToken()) {
       logger("warn", "apiPost() - Trying request again after refreshing token")
       httpPost(params) { resp ->
