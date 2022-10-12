@@ -11,7 +11,7 @@
     {
       "name": "Sonoff RF Bridge",
       "namespace": "syepes",
-      "location": "https://github.com/syepes/Hubitat/blob/master/Apps/Sonoff/Sonoff%20RF%20Bridge.groovy",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Sonoff/Sonoff%20RF%20Bridge.groovy",
       "version": "1.0.0",
       "required": true,
       "oauth": false,
@@ -22,7 +22,7 @@
     {
       "name": "Sonoff RF Bridge",
       "namespace": "syepes",
-      "location": "https://github.com/syepes/Hubitat/blob/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.groovy",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.groovy",
       "version": "1.0.0",
       "required": true
     },
