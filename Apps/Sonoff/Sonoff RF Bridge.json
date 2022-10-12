@@ -1,0 +1,44 @@
+{
+  "packageName": "Sonoff RF Bridge",
+  "minimumHEVersion": "2.2.3",
+  "author": "Sebastian YEPES FERNANDEZ",
+  "dateReleased": "2022-10-12",
+  "documentationLink": "",
+  "communityLink": "https://community.hubitat.com/t/release-sonoff-rf-433mhz-bridge/32959/1",
+  "licenseFile": "https://github.com/syepes/Hubitat#license",
+  "releaseNotes": "",
+  "apps": [
+    {
+      "name": "Sonoff RF Bridge",
+      "namespace": "syepes",
+      "location": "https://github.com/syepes/Hubitat/blob/master/Apps/Sonoff/Sonoff%20RF%20Bridge.groovy",
+      "version": "1.0.0",
+      "required": true,
+      "oauth": false,
+      "primary": true
+    }
+  ],
+  "drivers": [
+    {
+      "name": "Sonoff RF Bridge",
+      "namespace": "syepes",
+      "location": "https://github.com/syepes/Hubitat/blob/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Sonoff RF Bridge - Shade",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge%20-%20Shade.groovy",
+      "version": "1.0.0",
+      "required": true
+    },
+    {
+      "name": "Sonoff RF Bridge - Switch",
+      "namespace": "syepes",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge%20-%20Switch.groovy",
+      "version": "1.0.0",
+      "required": true
+    }
+  ]
+}

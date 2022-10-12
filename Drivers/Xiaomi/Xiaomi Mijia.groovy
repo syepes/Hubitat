@@ -174,7 +174,7 @@ private parseDescriptionAsMap(description) {
 
     if (body && body != "") {
       if(body.startsWith("\"{") || body.startsWith("{") || body.startsWith("\"[") || body.startsWith("[")) {
-        def slurper = new JsonSlurper()
+        JsonSlurper slurper = new JsonSlurper()
         body_json = slurper.parseText(body)
         logger("trace", "parseDescriptionAsMap() - body_json: ${body_json}")
       }

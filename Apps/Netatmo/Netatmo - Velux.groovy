@@ -272,11 +272,11 @@ boolean getToken() {
   // OAuth Step 2: Request access token with our client Secret and OAuth "Code"
   try {
     boolean rc = false
-    logger("trace", "getToken() - URL: ${getVendorTokenPath()}, PARAMS: ${params.inspect()}")
-    logger("trace", "getToken() - Request: ${getVendorTokenPath()}?${toQueryString(oauthParams)}")
+    logger("debug", "getToken() - URL: ${getVendorTokenPath()}, PARAMS: ${params.inspect()}")
+    logger("debug", "getToken() - Request: ${getVendorTokenPath()}?${toQueryString(oauthParams)}")
     httpPost(params) { resp ->
       logger("trace", "getToken() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
-      def slurper = new JsonSlurper()
+      JsonSlurper slurper = new JsonSlurper()
 
       if (resp && resp.getStatus() == 200) {
         resp?.getData()?.each {key, value ->
@@ -294,7 +294,7 @@ boolean getToken() {
     }
     return rc
   } catch (Exception e) {
-    logger("error", "getToken() - Request Exception: ${e.inspect()}")
+    logger("debug", "getToken() - Request Exception: ${e.inspect()}")
     state.authToken = null
     state.refreshToken = null
     return false
@@ -325,11 +325,11 @@ boolean refreshToken() {
 
   try {
     boolean rc = false
-    logger("trace", "refreshToken() - URL: ${getVendorTokenPath()}, PARAMS: ${params.inspect()}")
-    logger("trace", "refreshToken() - Request: ${getVendorTokenPath()}?${toQueryString(oauthParams)}")
+    logger("debug", "refreshToken() - URL: ${getVendorTokenPath()}, PARAMS: ${params.inspect()}")
+    logger("debug", "refreshToken() - Request: ${getVendorTokenPath()}?${toQueryString(oauthParams)}")
     httpPost(params) { resp ->
       logger("trace", "refreshToken() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
-      def slurper = new JsonSlurper();
+      JsonSlurper slurper = new JsonSlurper();
 
       if (resp && resp.getStatus() == 200) {
         resp?.getData()?.each {key, value ->
@@ -341,13 +341,13 @@ boolean refreshToken() {
         logger("info", "Refresh token success")
         rc = true
       } else {
-        logger("error", "Refresh token failed")
+        logger("warn", "Refresh token failed")
         rc = false
       }
     }
     return rc
   } catch (Exception e) {
-    logger("error", "refreshToken() - Request Exception: ${e.inspect()}")
+    logger("debug", "refreshToken() - Request Exception: ${e.inspect()}")
     state.authToken = null
     state.refreshToken = null
     return false

@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -295,7 +295,7 @@ def setStates(Map states) {
   logger("debug", "setStates(${states?.inspect()})")
   String temperatureFormat = parent.currentValue("temperatureFormat")
 
-  if ((states?.targetTemp as BigDecimal) > (states?.currentTemp as BigDecimal)) {
+  if ((states?.targetTemp as BigDecimal) >= (states?.currentTemp as BigDecimal)) {
     sendEvent(name: 'thermostatOperatingState', value: "heating", displayed: true)
   } else {
     sendEvent(name: 'thermostatOperatingState', value: "idle", displayed: true)

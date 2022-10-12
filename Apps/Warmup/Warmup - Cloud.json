@@ -30,7 +30,7 @@
       "name": "Warmup - Cloud - Room",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Warmup/Warmup%20-%20Cloud%20-%20Room.groovy",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "required": true
     }
   ]

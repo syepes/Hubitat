@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.2.5"
+@Field String VERSION = "1.2.6"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -362,7 +362,7 @@ def callback() {
       httpPost(params) { resp ->
         logger("trace", "callback() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
 
-        def slurper = new JsonSlurper()
+        JsonSlurper slurper = new JsonSlurper()
         resp?.getData()?.each { key, value ->
           def data = slurper.parseText(key)
           state.refreshToken = data.refresh_token
@@ -371,7 +371,7 @@ def callback() {
         }
       }
     } catch (e) {
-      logger("error", "callback() - Request Exception: ${e.inspect()}")
+      logger("debug", "callback() - Request Exception: ${e.inspect()}")
     }
 
     // Handle success and failure here, and render stuff accordingly
@@ -509,9 +509,17 @@ def webhook() {
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected by ${cd_camera}")
           cd_camera?.motion(payload?.snapshot_url ?: null, personName)
         break
+        case 'human':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected (${payload?.event_type}) by ${cd_camera}")
+          cd_camera?.motion(payload?.snapshot_url ?: null, 'Unknown')
+        break
         case 'person':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Person detected (${personName}) by ${cd_camera}")
           cd_camera?.motion(payload?.snapshot_url ?: null, personName)
+        break
+        case 'animal':
+          logger("debug", "webhook() - event_type: ${payload?.event_type} - Movement detected (${payload?.event_type}) by ${cd_camera}")
+          cd_camera?.motion(payload?.snapshot_url ?: null, 'Animal')
         break
         case 'alarm_started':
           logger("debug", "webhook() - event_type: ${payload?.event_type} - Alarm detected (${personName}) by ${cd_camera}")
@@ -596,6 +604,9 @@ def webhook() {
       if (!cd_doorbell) {
         logger("warn", "webhook() - Local Doorbell: ${doorbellID} (${payload?.home_name}) not found")
         return resp
+      }
+      if (payload?.push_type?.startsWith('NDB-rtc') && payload?.event_type == null) {
+        logger("debug", "webhook() - Ignore by ${cd_doorbell} - event_type: ${payload?.event_type} - payload: ${payload}")
       }
 
       switch (payload?.event_type) {
@@ -850,7 +861,7 @@ boolean refreshToken() {
     logger("debug", "refreshToken() - Request: ${getVendorTokenPath()}?${toQueryString(oauthParams)}")
     httpPost(params) { resp ->
       logger("trace", "refreshToken() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
-      def slurper = new JsonSlurper();
+      JsonSlurper slurper = new JsonSlurper();
 
       if (resp && resp.getStatus() == 200) {
         resp?.getData()?.each {key, value ->
@@ -862,13 +873,13 @@ boolean refreshToken() {
         logger("info", "Refresh token success")
         rc = true
       } else {
-        logger("error", "Refresh token failed")
+        logger("warn", "Refresh token failed")
         rc = false
       }
     }
     return rc
   } catch (Exception e) {
-    logger("error", "refreshToken() - Request Exception: ${e.inspect()}")
+    logger("debug", "refreshToken() - Request Exception: ${e.inspect()}")
     return false
   }
 

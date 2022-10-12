@@ -14,28 +14,12 @@
 
 import groovy.json.JsonSlurper
 import groovy.transform.Field
+import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.0.4"
+@Field String VERSION = "1.0.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
-
-/*
-Example VD_JSON definition json string
-Note: the string must be defined as one single line (https://www.webtoolkitonline.com/json-minifier.html), see the below examples:
-{
-  "Shade:Bedroom":{
-    "close":"< B0 String that closes the Shade >",
-    "open":"< B0 String that opens the Shade >",
-    "stop":"< B0 String to stop the Shade >"
-  },
-  "Switch:Radio":{
-    "on":"< B0 String turn on the Switch >",
-    "off":"< B0 String turn off the Switch >"
-  }
-}
-*/
-@Field String VD_JSON = '{"Shade:Bedroom":{"close":"< B0 String that closes the Shade >","open":"< B0 String that opens the Shade >","stop":"< B0 String to stop the Shade >"},"Switch:Radio":{"on":"< B0 String turn on the Switch >","off":"< B0 String turn off the Switch >"}}'
 
 metadata {
   definition (name: "Sonoff RF Bridge", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.groovy") {
@@ -45,20 +29,14 @@ metadata {
     capability "Configuration"
 
     command "clearState"
-    command "cleanChild"
     attribute "status", "string"
   }
 
   preferences {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
-      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: false
-      input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 5, required: true
-    }
-    section { // Configuration
-      input name: "deviceAddress", title: "Device IP and PORT", type: "text", defaultValue: "ip:port", required: true
-      input name: "deviceAuthUsr", title: "Device Auth Username", type: "text", defaultValue: "", required: false
-      input name: "deviceAuthPwd", title: "Device Auth Password", type: "text", defaultValue: "", required: false
+      input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: false, required: true
+      input name: "stateCheckInterval", title: "State Check", description: "Check interval of the current state", type: "enum", options:[[0:"Disabled"], [2:"2min"], [5:"5min"], [10:"10min"], [15:"15min"], [30:"30min"], [2:"1h"], [3:"3h"], [4:"4h"], [6:"6h"], [8:"8h"], [12: "12h"]], defaultValue: 2, required: true
     }
   }
 }
@@ -80,15 +58,6 @@ def installed() {
 def initialize() {
   logger("debug", "initialize()")
   sendEvent(name: "status", value: "unknown", descriptionText: "Is unknown", displayed: true)
-
-  def slurper = new JsonSlurper()
-  def vd_data = slurper.parseText(VD_JSON)
-
-  // Create virtual devices
-  vd_data?.each {
-    logger("info", "configure() - Creating Virtual Device: ${it.key?.split(':')?.getAt(1)} (${it.key?.split(':')?.getAt(0)})")
-    def vd = findOrCreateChild(it.key?.split(':')?.getAt(0), it.key?.split(':')?.getAt(1))
-  }
 }
 
 def updated() {
@@ -109,6 +78,7 @@ def updated() {
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
   getDeviceInfo()
+  checkState()
 }
 
 def configure() {
@@ -116,17 +86,12 @@ def configure() {
 
   state.devicePings = 0
   if (stateCheckInterval.toInteger()) {
-    if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
+    if (['2' ,'5', '10', '15', '30'].contains(stateCheckInterval) ) {
       schedule("0 */${stateCheckInterval} * ? * *", checkState)
     } else {
       schedule("0 0 */${stateCheckInterval} ? * *", checkState)
     }
   }
-}
-
-def cleanChild() {
-  logger("debug", "cleanChild() - childDevices: ${childDevices?.size()}")
-  childDevices?.each{ deleteChildDevice(it.deviceNetworkId) }
 }
 
 def clearState() {
@@ -158,7 +123,7 @@ def checkState() {
     logger("warn", "Device is offline")
   }
 
-  state.devicePings = state.devicePings + 1
+  state.devicePings = (state?.devicePings ?: 0) + 1
 
   cmds << getAction(getCommand("Status", 11))
   return cmds
@@ -168,7 +133,7 @@ def parse(String description) {
   logger("trace", "parse() - description: ${description?.inspect()}")
   def result = []
 
-  def descMap = parseDescriptionAsMap(description)
+  Map descMap = parseDescriptionAsMap(description)
 
   if (!descMap?.isEmpty()) {
     if (descMap["body"]?.containsKey("StatusSTS")) {
@@ -217,12 +182,12 @@ private def childClose(String value) {
   logger("debug", "childClose(${value})")
 
   try {
-    def slurper = new JsonSlurper()
-    def vd_data = slurper.parseText(VD_JSON)
+    JsonSlurper slurper = new JsonSlurper()
+    def vd_data = slurper.parseText(parent?.json)
 
-    def cd = getChildDevice(value)
+    ChildDeviceWrapper cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
+        (vd_hub, vd_parent, vd_type, vd_name) = value?.split('-', 4)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("windowShade")
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.close
@@ -254,12 +219,12 @@ private def childOpen(String value) {
   logger("debug", "childOpen(${value})")
 
   try {
-    def slurper = new JsonSlurper()
-    def vd_data = slurper.parseText(VD_JSON)
+    JsonSlurper slurper = new JsonSlurper()
+    def vd_data = slurper.parseText(parent?.json)
 
-    def cd = getChildDevice(value)
+    ChildDeviceWrapper cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
+        (vd_hub, vd_parent, vd_type, vd_name) = value?.split('-', 4)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("windowShade")
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.open
@@ -291,12 +256,12 @@ private def childStop(String value) {
   logger("debug", "childStop(${value})")
 
   try {
-    def slurper = new JsonSlurper()
-    def vd_data = slurper.parseText(VD_JSON)
+    JsonSlurper slurper = new JsonSlurper()
+    def vd_data = slurper.parseText(parent?.json)
 
-    def cd = getChildDevice(value)
+    ChildDeviceWrapper cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
+        (vd_hub, vd_parent, vd_type, vd_name) = value?.split('-', 4)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("windowShade")
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.stop
@@ -327,18 +292,17 @@ private def childPosition(String value, BigDecimal position) {
   logger("debug", "childPosition(${value},${position})")
 }
 
-
 // Capability: Switch
 private def childOn(String value) {
   logger("debug", "childOn(${value})")
 
   try {
-    def slurper = new JsonSlurper()
-    def vd_data = slurper.parseText(VD_JSON)
+    JsonSlurper slurper = new JsonSlurper()
+    def vd_data = slurper.parseText(parent?.json)
 
-    def cd = getChildDevice(value)
+    ChildDeviceWrapper cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
+        (vd_hub, vd_parent, vd_type, vd_name) = value?.split('-', 4)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("switch")
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.off
@@ -369,12 +333,12 @@ private def childOff(String value) {
   logger("debug", "childOff(${value})")
 
   try {
-    def slurper = new JsonSlurper()
-    def vd_data = slurper.parseText(VD_JSON)
+    JsonSlurper slurper = new JsonSlurper()
+    def vd_data = slurper.parseText(parent?.json)
 
-    def cd = getChildDevice(value)
+    ChildDeviceWrapper cd = getChildDevice(value)
     if (cd) {
-        (vd_parent, vd_type, vd_name) = value?.split('-', 3)
+        (vd_hub, vd_parent, vd_type, vd_name) = value?.split('-', 4)
         if (vd_data?.containsKey(vd_type +':'+ vd_name)) {
             String cv = cd.currentValue("switch")
             String rf_cmd = vd_data[vd_type +':'+ vd_name]?.on
@@ -400,37 +364,42 @@ private def childOff(String value) {
   }
 }
 
-// Finds / Creates the child device
-private def findOrCreateChild(String type, String name) {
-  logger("debug", "findOrCreateChild(${type},${name})")
+ChildDeviceWrapper addDevice(Map detail) {
+  logger("debug", "addDevice(${detail?.inspect()})")
+  logger("info", "Creating Device: ${detail?.name} (${detail?.type})")
+
   try {
-    String thisId = device.id
-    def cd = getChildDevice("${thisId}-${type}-${name}")
-    if (!cd) {
-      switch (type) {
+    ChildDeviceWrapper cd = getChildDevice("${device.deviceNetworkId}-${detail?.type}-${detail?.name}")
+    if(!cd) {
+      logger("debug", "addDevice() - Creating Device (${detail.inspect()}")
+      ChildDeviceWrapper cdm = addChildDevice("syepes", "Sonoff RF Bridge - ${detail?.type}", "${device.deviceNetworkId}-${detail?.type}-${detail?.name}", [name: "${detail?.type} ${detail?.name}", label: "${detail?.type} ${detail?.name}", isComponent: true])
+      switch (detail?.type) {
         case "Shade":
-          cd = addChildDevice("Sonoff RF Bridge - ${type} Child Device", "${thisId}-${type}-${name}", [name: "${type} ${name}", label: "${type} ${name}", isComponent: true])
-          cd.parse([[name:"windowShade", value:"closed"]])
+          cdm.parse([[name:"windowShade", value:"closed"]])
         break
         case "Switch":
-          cd = addChildDevice("Sonoff RF Bridge - ${type} Child Device", "${thisId}-${type}-${name}", [name: "${type} ${name}", label: "${type} ${name}", isComponent: true])
-          cd.parse([[name:"switch", value:"off"]])
+          cdm.parse([[name:"switch", value:"off"]])
         break
         default :
-          logger("error", "findOrCreateChild(${type},${name}) - Device type not found")
+          logger("error", "addDevice(${detail?.inspect()}) - Device type not found")
         break
       }
+
+      return cdm
+    } else {
+      logger("debug", "addDevice() - Device: ${cd.name} (${detail.type}) (${device.deviceNetworkId}-${detail?.type}-${detail?.name}) already exists")
+      return cd
     }
-    return cd
   } catch (e) {
-    logger("error", "findOrCreateChild(${type},${name}) - e: ${e}")
+    logger("error", "addDevice() - Room creation Exception: ${e.inspect()}")
+    return null
   }
 }
 
-private parseDescriptionAsMap(description) {
+private Map parseDescriptionAsMap(description) {
   logger("trace", "parseDescriptionAsMap() - description: ${description.inspect()}")
   try {
-    def descMap = description.split(",").inject([:]) { map, param ->
+    Map descMap = description.split(",").inject([:]) { map, param ->
       def nameAndValue = param.split(":")
       if (nameAndValue.length == 2){
         map += [(nameAndValue[0].trim()):nameAndValue[1].trim()]
@@ -451,7 +420,7 @@ private parseDescriptionAsMap(description) {
 
     if (body && body != "") {
       if(body.startsWith("{") || body.startsWith("[")) {
-        def slurper = new JsonSlurper()
+        JsonSlurper slurper = new JsonSlurper()
         body_json = slurper.parseText(body)
         logger("trace", "parseDescriptionAsMap() - body_json: ${body_json}")
       }
@@ -465,11 +434,13 @@ private parseDescriptionAsMap(description) {
 }
 
 // Synchronous call
-private getActionNow(uri) {
-  logger("debug", "getActionNow() - uri: ${uri.inspect()}")
+private boolean getActionNow(uri) {
+  logger("debug", "getActionNow(${uri})")
 
   try {
-    httpGet(["uri": "http://${deviceAddress}" + uri, "contentType": "application/json; charset=utf-8"]) { resp ->
+    String host_port = parent?.host_port
+
+    httpGet(["uri": "http://${host_port}" + uri, "contentType": "application/json; charset=utf-8"]) { resp ->
       logger("debug", "getActionNow() - respStatus: ${resp.getStatus()}, respHeaders: ${resp.getAllHeaders()?.inspect()}, respData: ${resp.getData()}")
       if (resp.success && resp?.getData()?.isEmpty()) {
         return true
@@ -490,10 +461,14 @@ private getAction(uri) {
   return hubAction
 }
 
-private def getCommand(command, value=null) {
+private String getCommand(command, value=null) {
+  logger("debug", "getCommand(command=${command}, value=${value})")
   String uri = "/cm?"
-  if (deviceAuthUsr != null && deviceAuthPwd != null) {
-    uri += "user=${deviceAuthUsr}&password=${deviceAuthPwd}&"
+  String user = parent?.user
+  String password = parent?.password
+
+  if (user != null && password != null) {
+    uri += "user=${user}&password=${password}&"
   }
   if (value) {
     uri += "cmnd=${command}%20${value}"
@@ -507,13 +482,17 @@ private String urlEscape(url) {
   return(URLEncoder.encode(url).replace("+", "%20"))
 }
 
-private getHeader() {
-  def headers = [:]
-  headers.put("Host", deviceAddress)
+private Map getHeader() {
+  String host_port = parent?.host_port
+  String user = parent?.user
+  String password = parent?.password
+
+  Map headers = [:]
+  headers.put("Host", host_port)
   headers.put("Content-Type", "application/x-www-form-urlencoded")
 
-  if (deviceAuthUsr != null && deviceAuthPwd != null) {
-    String auth = "Basic " + "${username}:${password}".bytes.encodeBase64().toString()
+  if (user != null && password != null) {
+    String auth = "Basic " + "${user}:${password}".bytes.encodeBase64().toString()
     headers.put("Authorization", auth)
   }
 
