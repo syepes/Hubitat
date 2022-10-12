@@ -195,7 +195,7 @@
     },
     {
       "name": "Sonoff RF Bridge",
-      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Sonoff/Sonoff%20RF%20Bridge.json",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Apps/Sonoff/Sonoff%20RF%20Bridge.json",
       "description": "",
       "category": "Integrations",
       "tags": [
