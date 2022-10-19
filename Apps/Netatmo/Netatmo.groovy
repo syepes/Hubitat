@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.2.6"
+@Field String VERSION = "1.2.7"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
@@ -607,6 +607,7 @@ def webhook() {
       }
       if (payload?.push_type?.startsWith('NDB-rtc') && payload?.event_type == null) {
         logger("debug", "webhook() - Ignore by ${cd_doorbell} - event_type: ${payload?.event_type} - payload: ${payload}")
+        return resp
       }
 
       switch (payload?.event_type) {
