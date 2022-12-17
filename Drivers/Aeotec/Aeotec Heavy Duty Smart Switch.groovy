@@ -165,7 +165,7 @@ def configure() {
   def result = []
 
   if (stateCheckInterval.toInteger()) {
-    String cron = (['5', '10', '15', '30'].contains(stateCheckInterval)  ?
+    String cron = (['5', '10', '15', '30'].contains(stateCheckInterval) ?
       "6 */${stateCheckInterval} * ? * *" :
       "6 0 */${stateCheckInterval} ? * *" );
 
