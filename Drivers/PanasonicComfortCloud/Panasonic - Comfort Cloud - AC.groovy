@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -45,7 +45,7 @@ import groovy.transform.Field
   3: "AirSwingLR"
 ]
 @Field static Map<Integer,String> typeAirSwingUD = [
-  '-1': "Auto",
+  (-1): "Auto",
   0: "Up",
   3: "UpMid",
   2: "Mid",
@@ -53,7 +53,7 @@ import groovy.transform.Field
   1: "Down"
 ]
 @Field static Map<Integer,String> typeAirSwingLR = [
-  '-1': "Auto",
+  (-1): "Auto",
   1: "Left",
   5: "LeftMid",
   2: "Mid",

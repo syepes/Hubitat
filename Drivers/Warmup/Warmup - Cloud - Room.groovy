@@ -85,6 +85,7 @@ metadata {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: true, required: false
+      input name: "tempChange", title: "Temperature Change", description: "Only log changes with differences of", type: "enum", options:[[0:"Any change"], [0.5:"0.5°"], [1:"1°"], [1.5:"1.5°"], [2:"2°"], [2.5:"2.5°"], [3:"3°"]], defaultValue: 1, required: true
     }
   }
 }
@@ -305,13 +306,6 @@ def setStates(Map states) {
     if (k =~ /^(schedule|roomId|roomName|locId)$/) { return }
     String cv = device.currentValue(k)
     boolean isStateChange = (cv?.toString() != v?.toString() ? true : false)
-    if (isStateChange) {
-      if (logDescText) {
-        log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
-      } else {
-        logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
-      }
-    }
 
     switch (k) {
       case 'runMode':
@@ -330,18 +324,48 @@ def setStates(Map states) {
         sendEvent(name: "thermostatMode", value: "${mode}", displayed: true, isStateChange: isStateChange)
       break
       case 'currentTemp':
+        def vDiff = Math.abs(cv?.toFloat() - v?.toFloat())
+        if (isStateChange && vDiff >= tempChange?.toFloat()) {
+          if (logDescText) {
+            log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
+          } else {
+            logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
+          }
+        }
         sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}",)
         sendEvent(name: 'temperature', value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}", state: "heat")
       break
       case 'targetTemp':
+        if (isStateChange) {
+          if (logDescText) {
+            log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
+          } else {
+            logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
+          }
+        }
         sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}",)
         sendEvent(name: 'heatingSetpoint', value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}", state: "heat")
         sendEvent(name: 'thermostatSetpoint', value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}", state: "heat")
       break
       case ~/.+Temp/:
+        def vDiff = Math.abs(cv?.toFloat() - v?.toFloat())
+        if (isStateChange && vDiff >= tempChange?.toFloat()) {
+          if (logDescText) {
+            log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
+          } else {
+            logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
+          }
+        }
         sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}")
       break
       default:
+        if (isStateChange) {
+          if (logDescText) {
+            log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
+          } else {
+            logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
+          }
+        }
         sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange)
       break
     }
