@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.5"
+@Field String VERSION = "1.1.6"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -165,15 +165,15 @@ def configure() {
   def result = []
 
   if (stateCheckInterval.toInteger()) {
-    if (['5', '10', '15', '30'].contains(stateCheckInterval) ) {
-      schedule("0 */${stateCheckInterval} * ? * *", checkState)
-    } else {
-      schedule("0 0 */${stateCheckInterval} ? * *", checkState)
-    }
-  }
+    String cron = (['5', '10', '15', '30'].contains(stateCheckInterval)  ?
+      "6 */${stateCheckInterval} * ? * *" :
+      "6 0 */${stateCheckInterval} ? * *" );
 
-  if (report_temp) {
-    schedule("0 */5 * ? * *", pollTemp)
+    schedule(cron, checkState)
+
+    if (report_temp) {
+      schedule(cron, pollTemp)
+    }
   }
 
   def switchAllMode = hubitat.zwave.commands.switchallv1.SwitchAllSet.MODE_INCLUDED_IN_THE_ALL_ON_ALL_OFF_FUNCTIONALITY
