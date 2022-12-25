@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# pip3 install python-dotenv requests simplejson
 
 try:
     # base

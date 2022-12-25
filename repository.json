@@ -256,7 +256,33 @@
         "LAN",
         "Cloud",
         "Climate Control",
+        "Climate Control",
         "Temperature & Humidity"
+      ]
+    },
+    {
+      "name": "ShellyPlus Generic",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Shelly/ShellyPlus%20Generic.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Cloud",
+        "Lights & Switches",
+        "Temperature"
+      ]
+    },
+    {
+      "name": "ShellyPlus Pilot Wire",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Shelly/ShellyPlus%20Pilot%20Wire.json",
+      "description": "",
+      "category": "Integrations",
+      "tags": [
+        "LAN",
+        "Cloud",
+        "Climate Control",
+        "Lights & Switches",
+        "Temperature"
       ]
     }
   ]

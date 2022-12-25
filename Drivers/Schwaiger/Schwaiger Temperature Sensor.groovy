@@ -195,8 +195,8 @@ def zwaveEvent(hubitat.zwave.commands.thermostatsetpointv2.ThermostatSetpointRep
 
   switch (cmd.setpointType) {
     case 1:
-      result << createEvent(name: "thermostatSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "F" : "C")
-      result << createEvent(name: "heatingSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "F" : "C")
+      result << createEvent(name: "thermostatSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "°F" : "°C")
+      result << createEvent(name: "heatingSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "°F" : "°C")
       break;
     default:
       logger("warn", "Unknown setpointType ${cmd.setpointType}")
@@ -330,8 +330,8 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
   def result = []
 
   if (cmd.sensorType == 1) {
-    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "\u00b0F" : "\u00b0C", displayed: true )
-    if (logDescText) { log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "\u00b0F" : "\u00b0C"}" }
+    result << createEvent(name: "temperature", value: cmd.scaledSensorValue, unit: cmd.scale ? "°F" : "°C", displayed: true )
+    if (logDescText) { log.info "${device.displayName} Temperature is ${cmd.scaledSensorValue} ${cmd.scale ? "°F" : "°C"}" }
   } else {
     logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
   }

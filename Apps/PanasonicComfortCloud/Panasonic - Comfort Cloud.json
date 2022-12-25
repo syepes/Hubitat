@@ -30,7 +30,7 @@
       "name": "Panasonic - Comfort Cloud - AC",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/PanasonicComfortCloud/Panasonic%20-%20Comfort%20Cloud%20-%20AC.groovy",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "required": true
     }
   ]

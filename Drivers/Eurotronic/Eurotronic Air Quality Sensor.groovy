@@ -259,7 +259,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv10.SensorMultilevelReport
     case 1:
       map.name = "temperature"
       map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "f" : "c", cmd.precision)
-      map.unit = "\u00b0" + getTemperatureScale()
+      map.unit = "°" + getTemperatureScale()
       map.descriptionText = "Temperature is ${map.value} ${map.unit}"
     break
     case 5:
@@ -271,7 +271,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv10.SensorMultilevelReport
     case 11:
       map.name = "DewPoint"
       map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "f" : "c", cmd.precision)
-      map.unit = "\u00b0" + getTemperatureScale()
+      map.unit = "°" + getTemperatureScale()
       map.descriptionText = "DewPoint is ${map.value} ${map.unit}"
     break
     case 17:

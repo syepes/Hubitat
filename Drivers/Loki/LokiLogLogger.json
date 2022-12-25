@@ -12,7 +12,7 @@
       "name": "LokiLogLogger",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiLogLogger.groovy",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "required": true
     }
   ]

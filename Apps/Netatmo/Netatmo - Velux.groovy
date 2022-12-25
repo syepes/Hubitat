@@ -554,6 +554,7 @@ private apiGet(String path, Map query, Closure callback) {
     if(refreshToken()) {
       logger("info", "apiGet() - Trying request again after refreshing token")
       httpGet(params) { resp ->
+        logger("trace", "apiGet() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
         callback.call(resp)
       }
     } else {

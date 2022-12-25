@@ -530,7 +530,7 @@ def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport 
     case 1:
       map.name = "temperature"
       map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "f" : "c", cmd.precision)
-      map.unit = "\u00b0" + getTemperatureScale()
+      map.unit = "°" + getTemperatureScale()
       map.descriptionText = "Temperature is ${map.value} ${map.unit}"
       map.displayed = true
     break

@@ -12,7 +12,7 @@
       "name": "Heatit Z-Temp2",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Heatit/Heatit%20Z-Temp2.groovy",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "required": true
     }
   ]

@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -29,6 +29,8 @@ metadata {
   definition (name: "LokiZWaveLogger", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiZWaveLogger.groovy") {
     capability "Initialize"
   }
+  attribute "status", "string"
+  attribute "queueSize", "number"
   command "disconnect"
   command "connect"
   command "cleanQueue"
@@ -38,8 +40,9 @@ metadata {
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
     }
 
-    input name: "ip", title: "FQDN or IP Address", type: "text", defaultValue: "192.168.1.1", required: true
-    input name: "port", title: "API Port", type: "number", defaultValue: 3100, required: true
+    input name: "loki_url", title: "Loki URL", type: "text", defaultValue: "https://logs-prod-eu-west-0.grafana.net/loki/api/v1/push", required: true
+    input name: "loki_user", title: "Loki User", type: "text", defaultValue: "", required: false
+    input name: "loki_password", title: "Loki Password/Token", type: "password", defaultValue: "", required: false
     input name: "queueMaxSize", title: "Queue Max Size", type: "number", defaultValue: 5000, required: true
     input name: "deviceDetails", title: "Device Details", description: "Collects additional device details (Additional authentication is required if the <b>Hub Login Security</b> is Enabled)", type: "enum", options:[[0:"Disabled"], [1:"Enabled"]], defaultValue: 0, required: true
     input name: "he_usr", title: "HE User", type: "text", description: "Only if <b>Hub Login Security</b> is Enabled", defaultValue: "", required: false
@@ -93,14 +96,14 @@ void parse(String description) {
   def descData = new JsonSlurper().parseText(description)
   // Don't log our own messages, we will get into a loop
   if("${device.id}" != "${descData.id}") {
-    if(ip != null && port != null) {
+    if(loki_url != null) {
       logger("trace", "parse() - descData: ${descData?.inspect()}")
 
       try {
         def hub = location.hubs[0]
         def dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
         def date = Date.parse(dateFormat, descData.time)
-        String ts = date.format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", location.timeZone)
+        String ts = date.time * 1000 * 1000
         Map ime = decodeIME(descData.imeReport)
         if (ime.isEmpty()) {
           logger("warn", "Skipping event")
@@ -135,7 +138,7 @@ void parse(String description) {
         }
 
         String line = "seqNo: ${descData.seqNo}, device_name: ${labels.device_name}, routeChanged: ${labels.routeChanged}, transmissionTime: ${ime.transmissionTime}, repeaters: [${ime.repeaters}], speed: ${ime.speed}, rssi: [${ime.get('rssi','None')}], AckChannel: ${ime.get('AckChannel','None')}, TransmitChannel: ${ime.get('TransmitChannel','None')}"
-        String json = '''{"labels": "{hub_name=\\"'''+labels.hub_name+'''\\",hub_ip=\\"'''+labels.hub_ip+'''\\",hub_fw=\\"'''+labels.hub_fw+'''\\",event_type=\\"'''+labels.event_type+'''\\",event_source=\\"'''+labels.event_source+'''\\",level=\\"'''+labels.level+'''\\",device_id=\\"'''+labels.device_id+'''\\",device_id_net=\\"'''+labels.device_id_net+'''\\",device_name=\\"'''+labels.device_name+'''\\",device_driver=\\"'''+labels.device_driver+'''\\",device_driver_type=\\"'''+labels.device_driver_type+'''\\",routeChanged=\\"'''+labels.routeChanged+'''\\",speed=\\"'''+labels.speed+'''\\"}", "entries": [{"ts": "'''+ts+'''", "line": "'''+line+'''"}]}'''
+        String json = '''{"stream": '''+ groovy.json.JsonOutput.toJson(labels) +''', "values": [["'''+ts+'''", "'''+line+'''"]]}'''
         pushLog(json)
 
       } catch(e) {
@@ -143,7 +146,7 @@ void parse(String description) {
       }
 
     } else {
-      logger("warn", "parse() - DdeviceInventoryestination IP not set")
+      logger("warn", "parse() - Destination Loki URL has not been set")
     }
   }
 }
@@ -254,8 +257,20 @@ void initialize() {
 void webSocketStatus(String status) {
   logger("debug", "webSocketStatus() - status: ${status}")
 
-  if(status.startsWith("failure")) {
-    logger("warn", "Reconnecting to WebSocket")
+  if(status.startsWith("status: open")) {
+    sendEvent(name: "status", value: "open", displayed: true)
+    return
+  } else if(status.startsWith("status: closing")) {
+    sendEvent(name: "status", value: "closing", displayed: true)
+    return
+  } else if(status.startsWith("failure")) {
+    logger("warn", "Reconnecting to WebSocket (${status})")
+    sendEvent(name: "status", value: "failed", displayed: true)
+    // Wait and reconnect
+    runIn(5, connect)
+  } else {
+    logger("warn", "Reconnecting to WebSocket (${status})")
+    sendEvent(name: "status", value: "lost", displayed: true)
     // Wait and reconnect
     runIn(5, connect)
   }
@@ -292,12 +307,18 @@ void pushLogFromQueue() {
 
   try {
     Map postParams = [
-      uri: "http://${ip}:${port}/api/prom/push",
+      uri: "${loki_url}",
       requestContentType: 'application/json',
       contentType: 'application/json',
       headers: ['Content-type':'application/json'],
       body : evt
     ]
+    if (loki_user != null && loki_password != null) {
+      String auth = "Basic "+ "${loki_user}:${loki_password}".bytes.encodeBase64().toString()
+      postParams['headers'] << ['Authorization':auth]
+    }
+
+    sendEvent(name: "queueSize", value: sendQueue?.size(), displayed: true)
     asynchttpPost('logResponse', postParams, [data: sendQueue])
 
   } catch (e) {
@@ -313,17 +334,19 @@ void logResponse(hubResponse, payload) {
   try {
     if (hubResponse?.status < 300) { // OK
       logger("info", "Sent Logs: ${sendQueue.size()}")
-      logger("trace", "logResponse() - API: http://${ip}:${port}/api/prom/push, Response: ${hubResponse.status}, Payload: ${payload}")
+      logger("trace", "logResponse() - API: ${loki_url}, Response: ${hubResponse.status}, Payload: ${payload}")
       sendQueue = []
+      sendEvent(name: "queueSize", value: 0, displayed: true)
 
     } else { // Failed
       String errData = hubResponse?.getErrorData()
       String errMsg = hubResponse?.getErrorMessage()
       logger("warn", "Failed Sending Logs - QueueSize: ${sendQueue?.size()}, Response: ${hubResponse?.status}, Error: ${errData} ${errMfg}")
-      logger("trace", "logResponse() - API: http://${ip}:${port}/api/prom/push, Response: ${hubResponse.status}, Headers: ${hubResponse?.headers}, Payload: ${payload}")
+      logger("trace", "logResponse() - API: ${loki_url}, Response: ${hubResponse.status}, Headers: ${hubResponse?.headers}, Payload: ${payload}")
       if (sendQueue?.size() >= queueMaxSize) {
         logger("error", "Maximum Queue size reached: ${sendQueue?.size()} >= ${queueMaxSize}, all current logs have been droped")
         sendQueue = []
+        sendEvent(name: "queueSize", value: 0, displayed: true)
       }
     }
     asyncInProgress = false

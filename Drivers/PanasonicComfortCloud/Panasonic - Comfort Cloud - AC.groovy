@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -130,6 +130,7 @@ metadata {
     section { // General
       input name: "logLevel", title: "Log Level", type: "enum", options: LOG_LEVELS, defaultValue: DEFAULT_LOG_LEVEL, required: false
       input name: "logDescText", title: "Log Description Text", type: "bool", defaultValue: true, required: false
+      input name: "tempChange", title: "Temperature Change", description: "Only log changes with differences of", type: "enum", options:[[0:"Any change"], [0.5:"0.5°"], [1:"1°"], [1.5:"1.5°"], [2:"2°"], [2.5:"2.5°"], [3:"3°"]], defaultValue: 1.5, required: true
     }
   }
 }
@@ -322,6 +323,28 @@ def setStates(Map states) {
             }
             sendEvent(name: "${pk}", value: "${mode}", displayed: true, isStateChange: isStateChange)
           break
+          case ['insideTemperature', 'outTemperature']:
+            String unit = (state?.deviceInfo?.temperatureUnit?.toInteger() == 0) ? "°C" : "°F"
+            boolean isStateChange = (cv?.toString() != pv?.toString() ? true : false)
+            def vDiff = Math.abs(cv?.toFloat() - pv?.toFloat())
+
+            if (isStateChange && vDiff >= tempChange?.toFloat()) {
+              if (logDescText) {
+                if (pk == "insideTemperature") {
+                  log.info "${device.displayName} Temperature (Inside) is ${pv} ${unit}"
+                } else {
+                  log.info "${device.displayName} Temperature (Outside) is ${pv} ${unit}"
+                }
+              } else {
+                logger("debug", "setStates() - Value change: ${pk} = ${cv} ${unit} != ${pv} ${unit}")
+              }
+            }
+
+            sendEvent(name: "${pk}", value: "${pv}", displayed: true, isStateChange: isStateChange, unit: unit)
+            if (pk =~ /^(insideTemperature)$/) {
+              sendEvent(name: "temperature", value: "${pv}", displayed: true, isStateChange: isStateChange, unit: unit)
+            }
+          break
           default:
             boolean isStateChange = (cv?.toString() != pv?.toString() ? true : false)
             if (isStateChange) {
@@ -332,9 +355,6 @@ def setStates(Map states) {
               }
             }
             sendEvent(name: "${pk}", value: "${pv}", displayed: true, isStateChange: isStateChange)
-            if (pk =~ /^(insideTemperature)$/) {
-              sendEvent(name: "temperature", value: "${pv}", displayed: true, isStateChange: isStateChange)
-            }
           break
         }
       }

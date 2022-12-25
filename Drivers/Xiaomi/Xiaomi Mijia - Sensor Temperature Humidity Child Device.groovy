@@ -96,7 +96,7 @@ def parse(value) {
             sendEvent(map)
           break
           case 'temperature':
-            Map map = [ name: "temperature", value: v, unit: "\u00b0C", displayed: true, descriptionText: "Temperature is ${v} \u00b0C"]
+            Map map = [ name: "temperature", value: v, unit: "°C", displayed: true, descriptionText: "Temperature is ${v} °C"]
             if(logDescText && map?.descriptionText) {
               log.info "${device.displayName} ${map.descriptionText}"
             } else if(map?.descriptionText) {

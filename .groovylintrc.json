@@ -1,0 +1,40 @@
+{
+  "extends": "recommended",
+  "rules": {
+    "CompileStatic": {
+      "enabled": false
+    },
+    "DuplicateNumberLiteral": {
+      "enabled": false
+    },
+    "DuplicateStringLiteral": {
+      "enabled": false
+    },
+    "IfStatementBraces": {
+      "enabled": false
+    },
+    "LineLength": {
+      "length": 240
+    },
+    "MethodCount": {
+      "enabled": false
+    },
+    "MethodParameterTypeRequired": {
+      "enabled": false
+    },
+    "MethodReturnTypeRequired": {
+      "enabled": false
+    },
+    "UnnecessaryGetter": {
+      "enabled": false
+    },
+    "UnnecessaryReturnKeyword": {
+      "enabled": false
+    },
+    "comments.ClassJavadoc": "off",
+    "formatting.Indentation": {
+      "spacesPerIndentLevel": 2,
+      "severity": "info"
+    }
+  }
+}

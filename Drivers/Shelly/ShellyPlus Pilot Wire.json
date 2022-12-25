@@ -1,18 +1,18 @@
 {
-  "packageName": "LokiZigbeeLogger",
+  "packageName": "ShellyPlus Pilot Wire",
   "minimumHEVersion": "2.2.3",
   "author": "Sebastian YEPES FERNANDEZ",
-  "dateReleased": "2020-10-28",
+  "dateReleased": "2022-12-25",
   "documentationLink": "",
   "communityLink": "",
   "licenseFile": "https://github.com/syepes/Hubitat#license",
   "releaseNotes": "",
   "drivers": [
     {
-      "name": "LokiZigbeeLogger",
+      "name": "ShellyPlus Pilot Wire",
       "namespace": "syepes",
-      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Loki/LokiZigbeeLogger.groovy",
-      "version": "1.0.3",
+      "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Shelly/ShellyPlus%20Pilot%20Wire.groovy",
+      "version": "1.0.0",
       "required": true
     }
   ]

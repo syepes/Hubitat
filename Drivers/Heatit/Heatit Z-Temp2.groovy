@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.1.4"
+@Field String VERSION = "1.1.5"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -293,12 +293,12 @@ def zwaveEvent(hubitat.zwave.commands.thermostatsetpointv2.ThermostatSetpointRep
 
   switch (cmd.setpointType) {
     case 1:
-      sendEvent(name: "thermostatSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "F" : "C")
-      sendEvent(name: "heatingSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "F" : "C")
+      sendEvent(name: "thermostatSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "°F" : "°C")
+      sendEvent(name: "heatingSetpoint", value: cmd.scaledValue, unit: cmd.scale ? "°F" : "°C")
       if (logDescText) {
-        log.info "${device.displayName} Thermostat Setpoint: ${cmd.scaledValue} \u00b0${getTemperatureScale()}"
+        log.info "${device.displayName} Thermostat Setpoint: ${cmd.scaledValue} °${getTemperatureScale()}"
       } else {
-        logger("info", "Thermostat Setpoint: ${cmd.scaledValue} \u00b0${getTemperatureScale()}")
+        logger("info", "Thermostat Setpoint: ${cmd.scaledValue} °${getTemperatureScale()}")
       }
     break;
     default:
@@ -345,31 +345,37 @@ def zwaveEvent(hubitat.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNot
 def zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
   logger("trace", "zwaveEvent(SensorMultilevelReport) - cmd: ${cmd.inspect()}")
   Map map = [:]
+  String cv = ""
 
   switch (cmd.sensorType) {
     case 1:
+      cv = device.currentValue("temperature")
       map.name = "temperature"
       map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "f" : "c", cmd.precision)
-      map.unit = "\u00b0" + getTemperatureScale()
+      map.unit = "°" + getTemperatureScale()
       map.descriptionText = "Temperature is ${map.value} ${map.unit}"
       map.displayed = true
+      map.isStateChange = (cv?.toString() != map?.value?.toString()) ? true : false
     break
     case 5:
+      cv = device.currentValue("humidity")
       map.name = "humidity"
       map.value = cmd.scaledSensorValue
       map.unit = "%"
       map.descriptionText = "Humidity is ${map.value} ${map.unit}"
       map.displayed = true
+      map.isStateChange = (cv?.toString() != map?.value?.toString()) ? true : false
     break
     default:
       logger("warn", "zwaveEvent(SensorMultilevelReport) - Unknown sensorType - cmd: ${cmd.inspect()}")
+      return
     break;
   }
 
-  if(logDescText && map?.descriptionText) {
+  if(logDescText && map?.isStateChange) {
     log.info "${device.displayName} ${map.descriptionText}"
   } else if(map?.descriptionText) {
-    logger("info", "${map.descriptionText}")
+    logger("debug", "${map.descriptionText}")
   }
   sendEvent(map)
 }

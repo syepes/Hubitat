@@ -5,6 +5,32 @@ networks:
     driver: bridge
 
 services:
+  vm-agt:
+    image: victoriametrics/vmagent
+    container_name: vm-agt
+    hostname: vm-agt
+    restart: always
+    stop_grace_period: 5m
+    networks:
+      - net
+    ports:
+      - 8429:8429/tcp
+      - 8189:8189/tcp
+    volumes:
+      - ./cfg/vmagent_prometheus.yml:/vmagent_prometheus.yml
+      - ./data/vmagt:/storage
+    command:
+      - "-promscrape.config=/vmagent_prometheus.yml"
+      - "-remoteWrite.tmpDataPath=/storage"
+      - "-loggerLevel=INFO"
+      - "-httpListenAddr=:8429"
+      - "-influxListenAddr=:8189"
+      - "-influxSkipSingleField"
+      - "-remoteWrite.showURL"
+      - "-remoteWrite.url=http://vm:8428/api/v1/write"
+      - "-remoteWrite.url=https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push"
+      - "-remoteWrite.basicAuth.username=USRID"
+      - "-remoteWrite.basicAuth.password=TOKEN"
   vm:
     image: victoriametrics/victoria-metrics:latest
     container_name: vm
@@ -22,29 +48,10 @@ services:
       - "-loggerLevel=INFO"
       - "-loggerFormat=default"
       - "-httpListenAddr=:8428"
-      - "-retentionPeriod=24"
-      - "-memory.allowedPercent=60"
+      - "-retentionPeriod=2y"
       - "-influxSkipSingleField"
       - "-selfScrapeInterval=30s"
-  loki:
-    image: grafana/loki:2.0.0
-    container_name: loki
-    hostname: loki
-    restart: always
-    stop_grace_period: 5m
-    networks:
-      - data
-    ports:
-      - 3100:3100/tcp
-    volumes:
-      - ./cfg/loki.yml:/etc/loki/local-config.yaml
-      - ./data/loki:/data
-    command:
-      - "-config.file=/etc/loki/local-config.yaml"
-      - "-log.level=info"
-      - "-log.format=logfmt"
-    security_opt:
-      - seccomp:unconfined
+      - "-inmemoryDataFlushInterval=15s"
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -65,3 +72,20 @@ services:
     depends_on:
       - vm
       - loki
+  hubitat_exporter:
+    image: syepes/hubitat_exporter:latest
+    container_name: hubitat_exporter
+    hostname: hubitat_exporter
+    restart: always
+    stop_grace_period: 3s
+    networks:
+      - net
+    ports:
+      - 8000:8000/tcp
+    environment:
+      - HE_IP=ABC
+      - HE_APP_ID=ABC
+      - HE_API_TOKEN=ABC
+      - HE_AUTH_USR=ABC
+      - HE_AUTH_PWD=ABC
+      - HE_DD=true
