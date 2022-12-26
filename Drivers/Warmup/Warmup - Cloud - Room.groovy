@@ -39,6 +39,8 @@ metadata {
     capability "ThermostatMode"
     capability "ThermostatOperatingState"
     capability "ThermostatHeatingSetpoint"
+    capability "ThermostatSetpoint"
+
 
     command "clearState"
     command "setProgramme", [[name:"mode", type: "ENUM", description: "mode", constraints: ["prog","fixed"]], [name:"degrees", type: "NUMBER", description: "Temperature"]]
@@ -305,15 +307,20 @@ def setStates(Map states) {
   states?.each { k, v ->
     if (k =~ /^(schedule|roomId|roomName|locId)$/) { return }
     String cv = device.currentValue(k)
-    boolean isStateChange = (cv?.toString() != v?.toString() ? true : false)
+    boolean isStateChange = (cv?.toString() != v?.toString()) ? true : false
 
     switch (k) {
       case 'runMode':
+        if (["schedule", "override"].contains(v)) {
+          sendEvent(name: "switch", value: "on", displayed: true)
+        } else {
+          sendEvent(name: "switch", value: "off", displayed: true)
+        }
         sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange)
 
         String mode = typeRunMode.find { it.key == v }?.value
         cv = device.currentValue("thermostatMode")
-        isStateChange = (cv?.toString() != mode ? true : false)
+        isStateChange = (cv?.toString() != mode) ? true : false
         if (isStateChange) {
           if (logDescText) {
             log.info "${device.displayName} Value change: thermostatMode = ${cv} != ${mode}"
@@ -327,23 +334,24 @@ def setStates(Map states) {
         def vDiff = Math.abs(cv?.toFloat() - v?.toFloat())
         if (isStateChange && vDiff >= tempChange?.toFloat()) {
           if (logDescText) {
-            log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
+            log.info "${device.displayName} Temperature is ${v} ${temperatureFormat}"
           } else {
-            logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
+            logger("debug", "setStates() - Value change: ${k} = ${cv} ${temperatureFormat} != ${v} ${temperatureFormat}")
           }
         }
-        sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}",)
+
+        sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}")
         sendEvent(name: 'temperature', value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}", state: "heat")
       break
       case 'targetTemp':
         if (isStateChange) {
           if (logDescText) {
-            log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
+            log.info "${device.displayName} Value change: ${k} = ${cv} ${temperatureFormat} != ${v} ${temperatureFormat}"
           } else {
-            logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
+            logger("debug", "setStates() - Value change: ${k} = ${cv} ${temperatureFormat} != ${v} ${temperatureFormat}")
           }
         }
-        sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}",)
+        sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}")
         sendEvent(name: 'heatingSetpoint', value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}", state: "heat")
         sendEvent(name: 'thermostatSetpoint', value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}", state: "heat")
       break
@@ -351,9 +359,9 @@ def setStates(Map states) {
         def vDiff = Math.abs(cv?.toFloat() - v?.toFloat())
         if (isStateChange && vDiff >= tempChange?.toFloat()) {
           if (logDescText) {
-            log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"
+            log.info "${device.displayName} Value change: ${k} = ${cv} ${temperatureFormat} != ${v} ${temperatureFormat}"
           } else {
-            logger("debug", "setStates() - Value change: ${k} = ${cv} != ${v}")
+            logger("debug", "setStates() - Value change: ${k} = ${cv} ${temperatureFormat} != ${v} ${temperatureFormat}")
           }
         }
         sendEvent(name: "${k}", value: "${v}", displayed: true, isStateChange: isStateChange, unit: "${temperatureFormat}")

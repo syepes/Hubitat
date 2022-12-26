@@ -408,7 +408,7 @@ private setSwitchEvent(hubitat.zwave.Command cmd) {
 
   String cv = device.currentValue("switch")
   String value = (cmd.value ? "on" : "off")
-  boolean isStateChange = (cv?.toString() != value ? true : false)
+  boolean isStateChange = (cv?.toString() != value) ? true : false
 
   if (isStateChange) {
     if (logDescText) {

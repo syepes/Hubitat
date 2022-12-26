@@ -542,7 +542,7 @@ private setLevelEvent(hubitat.zwave.Command cmd) {
 
   String cv = device.currentValue("switch")
   String value = (cmd.value ? "on" : "off")
-  boolean isStateChange = (cv?.toString() != value ? true : false)
+  boolean isStateChange = (cv?.toString() != value) ? true : false
   Map mode_map = [0:"Stop",15:"Anti Freeze",25:"Eco",35:"Comfort-2",45:"Comfort-1",99:"Comfort", 100:"Comfort"]
 
   if (isStateChange) {

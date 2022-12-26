@@ -145,8 +145,8 @@ def deviceUpdate() {
   Map deviceState = [ name: "status",
                       value: 'online',
                       descriptionText: "Is online",
-                      isStateChange: (device.currentValue('status') != 'online' ? true : false),
-                      displayed: (device.currentValue('status') != 'online' ? true : false)
+                      isStateChange: (device.currentValue('status') != 'online') ? true : false,
+                      displayed: (device.currentValue('status') != 'online') ? true : false
   ]
 
   state.devicePings = 0

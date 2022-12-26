@@ -103,7 +103,7 @@ def setStates(Map states) {
   logger("debug", "setStates(${states?.inspect()})")
   states?.each { k, v ->
     String cv = device.currentValue(k)
-    boolean isStateChange = (cv?.toString() != v?.toString() ? true : false)
+    boolean isStateChange = (cv?.toString() != v?.toString()) ? true : false
     if (isStateChange) {
       if (logDescText && k != "last_seen") {
         log.info "${device.displayName} Value change: ${k} = ${cv} != ${v}"

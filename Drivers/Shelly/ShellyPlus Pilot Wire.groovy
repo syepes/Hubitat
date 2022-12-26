@@ -345,7 +345,7 @@ def setStates(Map states) {
     if (k =~ /^(wifi)$/) {
       v?.each { sk, sv ->
         String cv = device.currentValue(sk)
-        boolean isStateChange = (cv?.toString() != sv?.toString() ? true : false)
+        boolean isStateChange = (cv?.toString() != sv?.toString()) ? true : false
 
         switch (sk) {
           case ~/rssi/:
@@ -354,16 +354,16 @@ def setStates(Map states) {
 
             cv = device.currentValue("WiFiSignal")
             if (sv <= 0 && sv >= -70) {
-              isStateChange = (cv?.toString() != "Excellent" ? true : false)
+              isStateChange = (cv?.toString() != "Excellent") ? true : false
               sendEvent(name: "WiFiSignal", value: "Excellent", isStateChange: isStateChange)
             } else if (sv < -70 && sv >= -80) {
-              isStateChange = (cv?.toString() != "Good" ? true : false)
+              isStateChange = (cv?.toString() != "Good") ? true : false
               sendEvent(name: "WiFiSignal", value: "Good", isStateChange: isStateChange)
             } else if (sv < -80 && sv >= -90) {
-              isStateChange = (cv?.toString() != "Poor" ? true : false)
+              isStateChange = (cv?.toString() != "Poor") ? true : false
               sendEvent(name: "WiFiSignal", value: "Poor", isStateChange: isStateChange)
             } else if (sv < -90 && sv >= -100) {
-              isStateChange = (cv?.toString() != "Weak" ? true : false)
+              isStateChange = (cv?.toString() != "Weak") ? true : false
               sendEvent(name: "WiFiSignal", value: "Weak", isStateChange: isStateChange)
             }
           break
@@ -385,7 +385,7 @@ def setStates(Map states) {
           case ~/output/:
             cv = device.currentValue("switch${switchNum}")
             String value = (sv?.toString() == "true" ? "on" : "off")
-            isStateChange = (cv?.toString() != value?.toString() ? true : false)
+            isStateChange = (cv?.toString() != value?.toString()) ? true : false
             logger("debug", "Was turned ${value} (switch${switchNum})")
 
             // true if the output channel is currently on, false otherwise
@@ -397,19 +397,19 @@ def setStates(Map states) {
           break
           case ~/current/:
             cv = device.currentValue("amperage${switchNum}")
-            isStateChange = (cv?.toString() != sv?.toString() ? true : false)
+            isStateChange = (cv?.toString() != sv?.toString()) ? true : false
             // Last measured current in Amperes
             sendEvent(name: "amperage${switchNum}", value: "${sv}", displayed: true, isStateChange: isStateChange, unit: "A")
           break
           case ~/apower/:
             cv = device.currentValue("power${switchNum}")
-            isStateChange = (cv?.toString() != sv?.toString() ? true : false)
+            isStateChange = (cv?.toString() != sv?.toString()) ? true : false
             // Last measured instantaneous active power (in Watts) delivered to the attached load (shown if applicable)
             sendEvent(name: "power${switchNum}", value: "${sv}", displayed: true, isStateChange: isStateChange, unit: "W")
           break
           case ~/aenergy/:
             cv = device.currentValue("energy${switchNum}")
-            isStateChange = (cv?.toString() != sv.total?.toString() ? true : false)
+            isStateChange = (cv?.toString() != sv.total?.toString()) ? true : false
             // Information about the active energy counter, Total energy consumed in Watt-hours
             sendEvent(name: "energy${switchNum}", value: "${sv.total}", displayed: true, isStateChange: isStateChange, unit:"kWh")
           break
@@ -420,7 +420,7 @@ def setStates(Map states) {
             } else {
               value = v.tF
             }
-            isStateChange = (cv?.toString() != value ? true : false)
+            isStateChange = (cv?.toString() != value) ? true : false
             sendEvent(name: "${sk}${switchNum}", value: "${value}", displayed: true, isStateChange: isStateChange, unit: "°${temperatureFormat}")
           break
           default:

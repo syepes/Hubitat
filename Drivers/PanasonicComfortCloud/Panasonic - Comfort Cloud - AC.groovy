@@ -20,8 +20,8 @@ import groovy.transform.Field
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 @Field static Map<Integer,String> typeOperate = [
-  0: "Off",
-  1: "On"
+  0: "off",
+  1: "on"
 ]
 @Field static Map<Integer,String> typeOperationMode = [
   0: "Auto",
@@ -67,8 +67,8 @@ import groovy.transform.Field
 ]
 @Field static Map<Integer,String> typeNanoeMode = [
   0: "Unavailable",
-  1: "Off",
-  2: "On",
+  1: "off",
+  2: "on",
   3: "ModeG",
   4: "All"
 ]
@@ -217,7 +217,7 @@ def setStates(Map states) {
         switch (pk) {
           case 'operate':
             String mode = typeOperate.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -229,7 +229,7 @@ def setStates(Map states) {
           break
           case 'operationMode':
             String mode = typeOperationMode.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -241,7 +241,7 @@ def setStates(Map states) {
           break
           case 'fanSpeed':
             String mode = typeFanSpeed.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -253,7 +253,7 @@ def setStates(Map states) {
           break
           case 'fanAutoMode':
             String mode = typeAirSwingAutoMode.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -265,7 +265,7 @@ def setStates(Map states) {
           break
           case 'airSwingUD':
             String mode = typeAirSwingUD.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -277,7 +277,7 @@ def setStates(Map states) {
           break
           case 'airSwingLR':
             String mode = typeAirSwingLR.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -289,7 +289,7 @@ def setStates(Map states) {
           break
           case 'ecoMode':
             String mode = typeEcoMode.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -301,7 +301,7 @@ def setStates(Map states) {
           break
           case 'nanoe':
             String mode = typeNanoeMode.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -313,7 +313,7 @@ def setStates(Map states) {
           break
           case 'actualNanoe':
             String mode = typeNanoeMode.find { it.key == pv }.value
-            boolean isStateChange = (cv?.toString() != mode ? true : false)
+            boolean isStateChange = (cv?.toString() != mode) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${mode}"
@@ -325,7 +325,7 @@ def setStates(Map states) {
           break
           case ['insideTemperature', 'outTemperature']:
             String unit = (state?.deviceInfo?.temperatureUnit?.toInteger() == 0) ? "°C" : "°F"
-            boolean isStateChange = (cv?.toString() != pv?.toString() ? true : false)
+            boolean isStateChange = (cv?.toString() != pv?.toString()) ? true : false
             def vDiff = Math.abs(cv?.toFloat() - pv?.toFloat())
 
             if (isStateChange && vDiff >= tempChange?.toFloat()) {
@@ -345,8 +345,19 @@ def setStates(Map states) {
               sendEvent(name: "temperature", value: "${pv}", displayed: true, isStateChange: isStateChange, unit: unit)
             }
           break
+          case ~/(?i).*temp.*/:
+            String unit = (state?.deviceInfo?.temperatureUnit?.toInteger() == 0) ? "°C" : "°F"
+            boolean isStateChange = (cv?.toString() != pv?.toString()) ? true : false
+            if (isStateChange) {
+              if (logDescText) {
+                log.info "${device.displayName} Value change: ${pk} = ${cv} ${unit} != ${pv} ${unit}"
+              } else {
+                logger("debug", "setStates() - Value change: ${pk} = ${cv} ${unit} != ${pv} ${unit}")
+              }
+            }
+            sendEvent(name: "${pk}", value: "${pv}", displayed: true, isStateChange: isStateChange, unit: unit)
           default:
-            boolean isStateChange = (cv?.toString() != pv?.toString() ? true : false)
+            boolean isStateChange = (cv?.toString() != pv?.toString()) ? true : false
             if (isStateChange) {
               if (logDescText) {
                 log.info "${device.displayName} Value change: ${pk} = ${cv} != ${pv}"
