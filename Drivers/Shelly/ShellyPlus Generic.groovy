@@ -298,10 +298,15 @@ def setStates(Map states) {
         switch (sk) {
           case ~/output/:
             cv = device.currentValue("switch${switchNum}")
-            String value = (sv?.toString() == "true" ? "on" : "off")
+            String value = (sv?.toString() == "true") ? "on" : "off"
             isStateChange = (cv?.toString() != value?.toString()) ? true : false
-            logger("debug", "Was turned ${value} (switch${switchNum})")
-
+            if (isStateChange) {
+              if (logDescText) {
+                log.info "${device.displayName} Was turned ${value} (switch${switchNum})"
+              } else {
+                logger("debug", "Was turned ${value} (switch${switchNum})")
+              }
+            }
             // true if the output channel is currently on, false otherwise
             sendEvent(name: "switch${switchNum}", value: "${value}", displayed: true, isStateChange: isStateChange)
           break
@@ -379,7 +384,16 @@ private setStatesAvg(Map states) {
     }
     try {
       String valAvg = vals.sum() / vals.size()
-      sendEvent(name: "${a}", value: "${valAvg}", displayed: true)
+      String cv = device.currentValue(a)
+      boolean isStateChange = (cv?.toString() != valAvg) ? true : false
+      if (isStateChange) {
+        if (logDescText) {
+          log.info "${device.displayName} Value change: ${a} = ${cv} != ${valAvg}"
+        } else {
+          logger("debug", "setStatesAvg() - Value change: ${a} = ${cv} != ${valAvg}")
+        }
+      }
+      sendEvent(name: "${a}", value: "${valAvg}", displayed: true, isStateChange: isStateChange)
     } catch (Exception e) { }
   }
 }

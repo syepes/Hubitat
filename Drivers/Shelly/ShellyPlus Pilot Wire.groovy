@@ -384,7 +384,7 @@ def setStates(Map states) {
         switch (sk) {
           case ~/output/:
             cv = device.currentValue("switch${switchNum}")
-            String value = (sv?.toString() == "true" ? "on" : "off")
+            String value = (sv?.toString() == "true") ? "on" : "off"
             isStateChange = (cv?.toString() != value?.toString()) ? true : false
             logger("debug", "Was turned ${value} (switch${switchNum})")
 
