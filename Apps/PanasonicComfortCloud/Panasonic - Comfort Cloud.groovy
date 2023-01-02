@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -372,6 +372,12 @@ def deviceControl(Map operation) {
     httpPostJson(params) { resp ->
       logger("trace", "deviceControl() - respStatus: ${resp?.getStatus()}, respHeaders: ${resp?.getAllHeaders()?.inspect()}, respData: ${resp?.getData()}")
       logger("debug", "deviceControl() - respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      if (resp && resp.getStatus() == 200) {
+        pauseExecution(1000)
+        checkState(operation?.deviceGuid)
+      } else {
+        logger("error", "deviceControl() - Failed Request: respStatus: ${resp?.getStatus()}, respData: ${resp?.getData()}")
+      }
     }
   } catch (Exception e) {
     logger("error", "deviceControl() - Request Exception: ${e.inspect()}")

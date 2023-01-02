@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -85,6 +85,7 @@ def off() {
     logger("debug", "off() - Device: ${device} (${deviceId})")
     if (deviceId) {
       parent.deviceControl(["deviceGuid": deviceId, "parameters":["operate": 0]])
+      sendEvent(name: "switch", value: "off", displayed: true, descriptionText: "${device} (${deviceId})")
     }
   }
 }
@@ -97,6 +98,7 @@ def on() {
     logger("debug", "on() - Device: ${device} (${deviceId})")
     if (deviceId) {
       parent.deviceControl(["deviceGuid": deviceId, "parameters":["operate": 1]])
+      sendEvent(name: "switch", value: "on", displayed: true, descriptionText: "${device} (${deviceId})")
     }
   }
 }

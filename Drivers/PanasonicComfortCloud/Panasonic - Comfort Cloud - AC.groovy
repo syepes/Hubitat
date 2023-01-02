@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.0.4"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -84,12 +84,9 @@ metadata {
     capability "Refresh"
     capability "Switch"
     capability "TemperatureMeasurement"
-    // capability "ThermostatCoolingSetpoint"
-    // capability "ThermostatHeatingSetpoint"
 
     command "clearState"
     command "setTemperature", [[name:"degrees",type:"NUMBER",description:"Temperature"]]
-
     command "setOperationMode", [[name:"operationMode",type:"ENUM", description:"Operation Mode", constraints: typeOperationMode.collect { it.value }]]
     command "setEcoMode", [[name:"ecoMode",type:"ENUM", description:"Eco Mode", constraints: typeEcoMode.collect { it.value }]]
     command "setFanSpeed", [[name:"fanSpeed",type:"ENUM", description:"Fan Speed", constraints: typeFanSpeed.collect { it.value }]]
@@ -225,6 +222,9 @@ def setStates(Map states) {
                 logger("debug", "setStates() - Value change: ${pk} = ${cv} != ${mode}")
               }
             }
+
+            parent?.sendEvent(name: "switch", value: "${mode}", displayed: true, descriptionText: "${device.displayName} (${state.deviceInfo['deviceGuid']})")
+            sendEvent(name: "switch", value: "${mode}", displayed: true, isStateChange: isStateChange)
             sendEvent(name: "${pk}", value: "${mode}", displayed: true, isStateChange: isStateChange)
           break
           case 'operationMode':

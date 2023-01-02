@@ -16,7 +16,7 @@ import groovy.transform.Field
 import groovy.json.JsonSlurper
 import com.hubitat.app.ChildDeviceWrapper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -46,7 +46,7 @@ metadata {
     capability "Switch"
     capability "Refresh"
 
-    command "setLocationModes", [[name:"mode", type: "ENUM", description: "Mode", constraints: ["off", "frost"]]]
+    command "setLocationModes", [[name:"mode", type: "ENUM", description: "Mode", constraints: ["off", "frost", "geo"]]]
 
     attribute "id", "string"
     attribute "name", "string"
@@ -114,7 +114,7 @@ def off() {
 
 def on() {
   logger("debug", "on()")
-  setLocationModes("frost")
+  setLocationModes("geo")
 }
 
 // Modes: [off, frost]
@@ -173,6 +173,11 @@ def setDetails(Map detail) {
     }
     if (k =~ /^(smartGeo|locMode)$/) {
       sendEvent(name: "${k}", value: "${v}", displayed: true)
+      if (k == "locMode" && ["frost", "geo"].contains(v)) {
+        sendEvent(name: "switch", value: "on", displayed: true, descriptionText: "Mode: ${v}")
+      } else if (k == "locMode" && "off" == v) {
+        sendEvent(name: "switch", value: "off", displayed: true, descriptionText: "Mode: ${v}")
+      }
     }
     if (k == "geoMode") {
       String mode = typeGeoMode.find { it.key == v }?.value

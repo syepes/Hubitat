@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -40,7 +40,6 @@ metadata {
     capability "ThermostatOperatingState"
     capability "ThermostatHeatingSetpoint"
     capability "ThermostatSetpoint"
-
 
     command "clearState"
     command "setProgramme", [[name:"mode", type: "ENUM", description: "mode", constraints: ["prog","fixed"]], [name:"degrees", type: "NUMBER", description: "Temperature"]]
@@ -186,6 +185,8 @@ def setThermostatMode(mode) {
       setOverride(20,60)
     break
   }
+  pauseExecution(2000)
+  refresh()
 }
 
 def setHeatingSetpoint(Double degrees) {
