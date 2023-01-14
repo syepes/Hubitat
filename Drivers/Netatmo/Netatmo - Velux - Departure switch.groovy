@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -22,6 +22,7 @@ import groovy.transform.Field
 metadata {
   definition (name: "Netatmo - Velux - Departure switch", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Departure%20switch.groovy") {
     capability "Actuator"
+    capability "Refresh"
     capability "Battery"
 
     attribute "id", "string"
@@ -79,6 +80,12 @@ def updated() {
 
 def initialize() {
   logger("debug", "initialize()")
+}
+
+def refresh() {
+  logger("debug", "refresh() - state: ${state.inspect()}")
+  def home = parent?.getParent()
+  home.checkState(state.deviceInfo.homeID)
 }
 
 def parse(value) {

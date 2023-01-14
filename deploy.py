@@ -169,7 +169,12 @@ local_drivers = find_files(pathlib.Path(fs_base, "Drivers").resolve())
 
 # Load Remote Drivers
 resp = session.get(url=he_url + "/driver/list/data")
-# print(resp)
+
+# Check loging session
+if 'X-Frame-Options' in resp.headers and resp.headers['X-Frame-Options'] == 'DENY':
+  print("Your HE Login Session has expired or been reseted, delete the file: .creds/cookie-jar.txt")
+  exit(1)
+
 he_drivers = resp.json()
 # print(he_drivers)
 
@@ -192,6 +197,12 @@ local_apps = find_files(pathlib.Path(fs_base, "Apps").resolve())
 
 # Load Remote Apps
 resp = session.get(url=he_url + "/app/list/data")
+
+# Check loging session
+if 'X-Frame-Options' in resp.headers and resp.headers['X-Frame-Options'] == 'DENY':
+  print("Your HE Login Session has expired or been reseted, delete the file: .creds/cookie-jar.txt")
+  exit(1)
+
 # print(resp)
 he_apps = resp.json()
 # print(he_apps)

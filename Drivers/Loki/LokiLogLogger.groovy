@@ -219,6 +219,8 @@ void pushLogFromQueue() {
       contentType: 'application/json',
       headers: ['Content-type':'application/json'],
       body : evt
+      // headers: ['Content-Encoding':'gzip'],
+      // body : string2gzip(evt.toString())
     ]
     if (loki_user != null && loki_password != null) {
       String auth = "Basic "+ "${loki_user}:${loki_password}".bytes.encodeBase64().toString()
@@ -339,6 +341,16 @@ void deviceInventory() {
     if (he_usr != "" && he_pwd != "") { state.authToken = '' }
     logger("error", "deviceInventory() - Error: ${e}")
   }
+}
+
+String string2gzip(String s){
+  ByteArrayOutputStream bos = new ByteArrayOutputStream()
+  java.util.zip.GZIPOutputStream gzip = new java.util.zip.GZIPOutputStream(bos)
+  gzip.write(s.getBytes('UTF-8'))
+  gzip.close()
+  byte[] gzipBytes = bos.toByteArray()
+  bos.close()
+  return gzipBytes.encodeBase64()
 }
 
 /**

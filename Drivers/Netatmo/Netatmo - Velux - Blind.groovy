@@ -22,6 +22,8 @@ import groovy.transform.Field
 metadata {
   definition (name: "Netatmo - Velux - Blind", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Blind.groovy") {
     capability "Actuator"
+    capability "Refresh"
+    capability "Switch"
     capability "WindowShade"
     command "stop"
 
@@ -82,6 +84,12 @@ def updated() {
 
 def initialize() {
   logger("debug", "initialize()")
+}
+
+def refresh() {
+  logger("debug", "refresh() - state: ${state.inspect()}")
+  def home = parent?.getParent()?.getParent()
+  home.checkState(state.deviceInfo.homeID)
 }
 
 def parse(value) {
@@ -154,6 +162,8 @@ def setPosition(BigDecimal value) {
         logger("error", "setPosition() - Failed: ${resp?.getData()?.body?.errors}")
       }
     }
+    pauseExecution(2000)
+    refresh()
   } catch (Exception e) {
     logger("error", "setPosition() - Request Exception: ${e.inspect()}")
   }
@@ -227,6 +237,7 @@ def setStates(Map states) {
           }
         }
         sendEvent(name: "windowShade", value: "closed", displayed: true, isStateChange: isStateChange)
+        sendEvent(name: "switch", value: "off", displayed: true)
       } else if (v == 100 ) {
         if (isStateChange) {
           if (logDescText) {
@@ -236,6 +247,7 @@ def setStates(Map states) {
           }
         }
         sendEvent(name: "windowShade", value: "open", displayed: true, isStateChange: isStateChange)
+        sendEvent(name: "switch", value: "on", displayed: true)
       } else {
         if (isStateChange) {
           if (logDescText) {
@@ -245,6 +257,7 @@ def setStates(Map states) {
           }
         }
         sendEvent(name: "windowShade", value: "partially open", displayed: true, isStateChange: isStateChange)
+        sendEvent(name: "switch", value: "on", displayed: true)
       }
     }
     if (k == "reachable" && v == "false") {

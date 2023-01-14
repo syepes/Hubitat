@@ -85,7 +85,7 @@ def installed() {
 def initialize() {
   logger("debug", "initialize()")
   sendEvent(name: "smoke", value: "clear", displayed: true)
-  sendEvent(name: "heatAlarm", value: "clear", displayed: true)
+  sendEvent(name: "heatAlarm", value: "inactive", displayed: true)
   sendEvent(name: "tamper", value: "clear", displayed: true)
 }
 

@@ -2,24 +2,25 @@
 import groovy.json.JsonSlurper
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "2.0.0"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
-@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[2]
+@Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
 
 metadata {
-  definition (name: "Water Meter - API External", namespace: "syepes", author: "Sebastian YEPES", importUrl: "") {
+  definition (name: "Water Meter - API External", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Generic/Water%20Meter%20-%20API%20External.groovy") {
     capability "Actuator"
     capability "Sensor"
-    capability "Water Sensor"
+    capability "LiquidFlowRate"
     capability "Initialize"
     command "clearState"
 
-    attribute "last_reading", "string"
-    attribute "index_type", "string"
-    attribute "index_count", "number"
-    attribute "index_day", "number"
-    attribute "status", "string"
+    attribute "day_euro", "number"
+    attribute "cumulative_euro", "number"
+    attribute "day_cubic_meter", "number"
+    attribute "cumulative_cubic_meter", "number"
+    attribute "day_liter", "number"
+    attribute "cumulative_liter", "number"
   }
   preferences {
     section { // General
@@ -30,6 +31,11 @@ metadata {
 
 def initialize() {
   logger("debug", "initialize()")
+
+  if (state.driverInfo == null || state.driverInfo.isEmpty() || state.driverInfo.ver != VERSION) {
+    state.driverInfo = [ver:VERSION]
+  }
+
   if (state.deviceInfo == null) {
     state.deviceInfo = [:]
   }
@@ -58,28 +64,20 @@ def parse(String description) {
   logger("debug", "parse() - msg: ${msg?.inspect()}")
 
   if (msg?.body) {
-    msg?.body?.each { k, v ->
-      switch (k) {
-        case 'timestamp':
-          Map map = [ name: "last_reading", value: v, displayed: true]
-          sendEvent(map)
-        break
-        case 'index_type':
-          Map map = [ name: "index_type", value: v, displayed: true]
-          sendEvent(map)
-        break
-        case 'index_count':
-          Map map = [ name: "index_count", value: v, displayed: true]
-          sendEvent(map)
-        break
-        case 'index_day':
-          Map map = [ name: "index_day", value: v, displayed: true]
-          sendEvent(map)
-        break
-        default:
-          logger("warn", "parse() - type: ${k} - Unhandled")
-        break
-      }
+    timestamp = msg?.body?.timestamp
+    unit = msg?.body?.unit
+    unit_name = msg?.body?.unit_name
+    type = msg?.body?.index_type
+    day = msg?.body?.index_day
+    cumulative = msg?.body?.index_count
+
+    sendEvent([name: "day_${unit_name}", value: day, unit: unit, type: type, descriptionText: timestamp, displayed: true])
+    sendEvent([name: "cumulative_${unit_name}", value: cumulative, unit: unit, type: type, descriptionText: timestamp, displayed: true])
+
+    // Calculate the LiquidFlowRate
+    if (unit_name == "liter") {
+      rate = day?.toInteger()/1440
+      sendEvent([name: "rate", value: rate, unit: "LPM", type: "calculated", descriptionText: timestamp, displayed: true])
     }
 
     state.deviceInfo.lastevent = (new Date().getTime()/1000) as long

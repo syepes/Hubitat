@@ -14,7 +14,7 @@
 
 import groovy.transform.Field
 
-@Field String VERSION = "1.0.2"
+@Field String VERSION = "1.0.3"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -22,6 +22,8 @@ import groovy.transform.Field
 metadata {
   definition (name: "Netatmo - Velux - Window", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Window.groovy") {
     capability "Actuator"
+    capability "Refresh"
+    capability "Switch"
     capability "WindowShade"
     command "stop"
 
@@ -86,6 +88,12 @@ def initialize() {
   logger("debug", "initialize()")
 }
 
+def refresh() {
+  logger("debug", "refresh() - state: ${state.inspect()}")
+  def home = parent?.getParent()?.getParent()
+  home.checkState(state.deviceInfo.homeID)
+}
+
 def parse(value) {
   logger("debug", "parse() - value: ${value?.inspect()}")
   if (value) {
@@ -145,6 +153,8 @@ def setPosition(BigDecimal value) {
   } else {
     setPositionLocal(value)
   }
+  pauseExecution(2000)
+  refresh()
 }
 
 private def setPositionLocal(BigDecimal value) {
@@ -254,6 +264,7 @@ def setStates(Map states) {
           }
         }
         sendEvent(name: "windowShade", value: "closed", displayed: true, isStateChange: isStateChange)
+        sendEvent(name: "switch", value: "off", displayed: true)
       } else if (v == 100 ) {
         if (isStateChange) {
           if (logDescText) {
@@ -263,6 +274,7 @@ def setStates(Map states) {
           }
         }
         sendEvent(name: "windowShade", value: "open", displayed: true, isStateChange: isStateChange)
+        sendEvent(name: "switch", value: "on", displayed: true)
       } else {
         if (isStateChange) {
           if (logDescText) {
@@ -272,6 +284,7 @@ def setStates(Map states) {
           }
         }
         sendEvent(name: "windowShade", value: "partially open", displayed: true, isStateChange: isStateChange)
+        sendEvent(name: "switch", value: "on", displayed: true)
       }
     }
     if (k == "reachable" && v == "false") {

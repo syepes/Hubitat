@@ -17,7 +17,7 @@ import groovy.json.JsonSlurper
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-@Field String VERSION = "1.0.1"
+@Field String VERSION = "1.0.2"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -94,6 +94,8 @@ def initialize() {
 
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
+  def home = parent?.getParent()
+  home.checkState(state.deviceInfo.homeID)
 }
 
 def parse(String description) {

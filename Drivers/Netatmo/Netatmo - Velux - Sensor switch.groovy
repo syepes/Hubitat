@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.0"
+@Field String VERSION = "1.0.1"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -23,6 +23,7 @@ import groovy.json.JsonSlurper
 metadata {
   definition (name: "Netatmo - Velux - Sensor switch", namespace: "syepes", author: "Sebastian YEPES", importUrl: "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Sensor%20switch.groovy") {
     capability "Actuator"
+    capability "Refresh"
     capability "Sensor"
     capability "Temperature Measurement"
     capability "Relative Humidity Measurement"
@@ -89,6 +90,8 @@ def initialize() {
 
 def refresh() {
   logger("debug", "refresh() - state: ${state.inspect()}")
+  def home = parent?.getParent()?.getParent()
+  home.checkState(state.deviceInfo.homeID)
 }
 
 def parse(String description) {
