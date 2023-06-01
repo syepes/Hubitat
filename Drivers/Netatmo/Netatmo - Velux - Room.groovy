@@ -32,10 +32,10 @@ metadata {
     capability "Carbon Dioxide Measurement"
     capability "AirQuality"
 
-    command "open", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
-    command "close", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
-    command "stop", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
-    command "setPosition", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]], [name:"position", type: "NUMBER", description: ""]]
+    command "open", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]]]
+    command "close", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]]]
+    command "stop", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]]]
+    command "setPosition", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]], [name:"position", type: "NUMBER", description: ""]]
 
     attribute "id", "string"
     attribute "velux_type", "string"
@@ -108,7 +108,7 @@ def parse(String description) {
 def close(String velux_type="all") {
   getChildDevices()?.each {
     String type = it?.currentValue("velux_type")
-    if (velux_type == "all" && type =~ /shutter|window/) {
+    if (velux_type == "all" && type =~ /shutter|window|blind/) {
       it.close()
     } else if (velux_type == type) {
       it.close()
@@ -119,7 +119,7 @@ def close(String velux_type="all") {
 def open(String velux_type="all") {
   getChildDevices()?.each {
     String type = it?.currentValue("velux_type")
-    if (velux_type == "all" && type =~ /shutter|window/) {
+    if (velux_type == "all" && type =~ /shutter|window|blind/) {
       it.open()
     } else if (velux_type == type) {
       it.open()
@@ -130,7 +130,7 @@ def open(String velux_type="all") {
 def stop(String velux_type="all") {
   getChildDevices()?.each {
     String type = it?.currentValue("velux_type")
-    if (velux_type == "all" && type =~ /shutter|window/) {
+    if (velux_type == "all" && type =~ /shutter|window|blind/) {
       it.stop()
     } else if (velux_type == type) {
       it.stop()
@@ -141,7 +141,7 @@ def stop(String velux_type="all") {
 def setPosition(String velux_type="all", BigDecimal position) {
   getChildDevices()?.each {
     String type = it?.currentValue("velux_type")
-    if (velux_type == "all" && type =~ /shutter|window/) {
+    if (velux_type == "all" && type =~ /shutter|window|blind/) {
       it.setPosition(position)
     } else if (velux_type == type) {
       it.setPosition(position)

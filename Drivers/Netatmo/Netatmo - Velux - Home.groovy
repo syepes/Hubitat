@@ -26,10 +26,10 @@ metadata {
     capability "Actuator"
     capability "Refresh"
 
-    command "open", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
-    command "close", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
-    command "stop", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]]]
-    command "setPosition", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter"]], [name:"position", type: "NUMBER", description: ""]]
+    command "open", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]]]
+    command "close", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]]]
+    command "stop", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]]]
+    command "setPosition", [[name:"velux_type", type: "ENUM", description: "mode", constraints: ["all","window","shutter","blind"]], [name:"position", type: "NUMBER", description: ""]]
     command "setScenario", [[name:"scenario_type", type: "ENUM", description: "scenario", constraints: ["wake_up","bedtime","away", "home", "away+bedtime", "home+wake_up"]]]
 
     attribute "city", "string"
