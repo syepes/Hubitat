@@ -15,7 +15,7 @@
 import groovy.transform.Field
 import groovy.json.JsonSlurper
 
-@Field String VERSION = "1.0.3"
+@Field String VERSION = "1.0.4"
 
 @Field List<String> LOG_LEVELS = ["error", "warn", "info", "debug", "trace"]
 @Field String DEFAULT_LOG_LEVEL = LOG_LEVELS[1]
@@ -99,7 +99,7 @@ void parse(String description) {
                       event_type: 'logs',
                       event_source: (descData?.type?.trim() ?: 'None'),
                       level: (descData?.level?.trim() ?: 'None'),
-                      device_id: descData.id,
+                      device_id: descData.id.toString(),
                       device_id_net: 'None',
                       device_type: (descData?.type?.trim() ?: 'None'),
                       device_name: (descData?.name?.trim() ?: 'None'),
