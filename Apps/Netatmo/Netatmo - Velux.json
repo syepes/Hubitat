@@ -58,7 +58,7 @@
       "name": "Netatmo - Velux - Blind",
       "namespace": "syepes",
       "location": "https://raw.githubusercontent.com/syepes/Hubitat/master/Drivers/Netatmo/Netatmo%20-%20Velux%20-%20Blind.groovy",
-      "version": "1.0.1",
+      "version": "1.0.0",
       "required": true
     },
     {
